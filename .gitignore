@@ -1,0 +1,64 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Local data / generated reports
+*.xlsx
+*.xls
+*.csv
+*.pdf
+*.docx
+~$*.xlsx
+
+# Windows / editor
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Backup files
+*.bak
+*.backup
+*backup*
+
+# Local scripts not needed on Vercel demo
+*.bat
+
+# Local Oracle / database sync scripts
+oracle_*.py
+*_oracle_*.py
+run_oracle*.bat
+run_*sync*.bat
+merge_order_tables_to_sqlite.py
+reset_database.py
+
+# Loose SQL/text scratch files
+.headers
+.mode
+.schema
+.tables
+SELECT
+CTL forward.txt
+New Text Document.txt
+Parallel toother bays- CTL.txt

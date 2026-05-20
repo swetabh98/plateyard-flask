@@ -1,0 +1,48 @@
+{
+  "A": {
+    "EF34": "Transfer Bed", "EF35": "Transfer Bed", "EF36": "Transfer Bed"
+  },
+  "B": {
+    "EF34": "Bott Insp", "EF35": "WIP-22"
+  },
+  "C": {
+    "EF34": "Stack", "EF35": "WIP", "EF36": "WIP", "EF37": "WIP", "EF38": "WIP",
+    "EF50": "WIP-16", "EF51": "WIP-15", "EF52": "WIP-14", "EF53": "WIP-13"
+  },
+  "D": {
+    "EF35": "WIP-12", "EF36": "WIP-11", "EF37": "WIP-10", "EF38": "WIP-9",
+    "EF50": "WIP-16", "EF51": "WIP-15", "EF52": "WIP-14", "EF53": "WIP-13"
+  },
+  "E": {
+    "EF34": "Scrap", "EF35": "Wood", "EF36": "FG-1", "EF37": "FG-2", "EF38": "FG-3",
+    "EF39": "FG-4", "EF40": "FG-5", "EF41": "FG-6", "EF42": "FG-7", "EF43": "FG-8",
+    "EF44": "FG-9", "EF45": "Buffer", "EF46": "Site Office", "EF47": "FG-10",
+    "EF48": "Office", "EF49": "FG-11", "EF50": "WIP-19", "EF51": "WIP-18",
+    "EF52": "WIP-17", "EF53": "WIP-20", "EF54": "FG-21", "EF55": "FG-22",
+    "EF56": "FG-23", "EF57": "FG-24", "EF58": "FG-25", "EF59": "FG-26",
+    "EF60": "FG-27", "EF61": "FG-28", "EF62": "FG-29", "EF63": "FG-30",
+    "EF64": "FG-31", "EF65": "FG-32", "EF66": "FG-33", "EF67": "FG-34"
+  },
+  "F": {
+    "EF34": "Scrap", "EF35": "Wood", "EF36": "FG-7", "EF37": "FG-8", "EF38": "FG-9",
+    "EF39": "FG-10", "EF40": "FG-11", "EF41": "FG-12", "EF42": "FG-13",
+    "EF43": "FG-14", "EF44": "FG-15", "EF45": "Buffer", "EF46": "Site Office",
+    "EF47": "FG-16", "EF48": "Office", "EF49": "FG-17", "EF50": "FG-18",
+    "EF51": "FG-19", "EF52": "FG-20", "EF53": "FG-21", "EF54": "FG-22",
+    "EF55": "FG-23", "EF56": "FG-24", "EF57": "FG-25", "EF58": "FG-26",
+    "EF59": "FG-27", "EF60": "FG-28", "EF61": "FG-29", "EF62": "FG-30",
+    "EF63": "FG-31", "EF64": "FG-32", "EF65": "FG-33", "EF66": "FG-34",
+    "EF67": "FG-35"
+  },
+  "G": {
+    "EF34": "Scrap", "EF35": "Wood", "EF36": "FG-15", "EF37": "FG-16",
+    "EF38": "FG-17", "EF39": "FG-18", "EF40": "FG-19", "EF41": "FG-20",
+    "EF42": "FG-21", "EF43": "FG-22", "EF44": "FG-23", "EF45": "FG-24",
+    "EF46": "FG-25", "EF47": "FG-26", "EF48": "FG-27", "EF49": "FG-28",
+    "EF50": "FG-29", "EF51": "FG-30", "EF52": "FG-31", "EF53": "FG-32",
+    "EF54": "FG-33", "EF55": "FG-34", "EF56": "FG-35", "EF57": "FG-36",
+    "EF58": "FG-37", "EF59": "FG-38", "EF60": "FG-39", "EF61": "FG-40",
+    "EF62": "FG-41", "EF63": "FG-42", "EF64": "FG-43", "EF65": "FG-44",
+    "EF66": "FG-45", "EF67": "FG-46"
+  }
+}

@@ -1,0 +1,1416 @@
+{# templates/dashboard.html #}
+{% extends "base.html" %}
+
+{% block title %}Dashboard • Jindal Yard{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root{
+    /* Jindal brand palette from PDF */
+    --j-saffron: #F47920;
+    --j-spring-green: #50B848;
+    --j-sky-blue: #29ABE2;
+    --j-grey: #636466;
+    --j-twilight: #446183;
+    --j-burgundy: #7C4548;
+    --j-moss: #8FA35D;
+    --j-peach: #D78E5E;
+    --j-oyster: #9C8C6F;
+
+    /* Dashboard maps to base.html tokens for layout/theme consistency */
+    --jindal-navy: var(--text-primary);
+    --jindal-navy-2: var(--text-primary);
+    --jindal-aqua: var(--j-sky-blue);
+    --card: var(--surface);
+    --muted: var(--text-secondary);
+    --shadow: 0 10px 30px rgba(68,97,131,.10);
+    --radius: 12px;
+    --ring: 0 0 0 3px rgba(41,171,226,.16);
+    --brand-blue: var(--j-sky-blue);
+    --brand-blue-2: var(--j-twilight);
+
+    --dash-primary: var(--j-sky-blue);
+    --dash-secondary: var(--j-twilight);
+    --dash-success: var(--j-spring-green);
+    --dash-warning: var(--j-saffron);
+    --dash-danger: var(--j-burgundy);
+    --dash-muted: var(--j-grey);
+    --dash-subtle: var(--j-oyster);
+    --dash-warm: var(--j-peach);
+    --dash-legend: var(--j-moss);
+  }
+
+  html, body { overflow-x:hidden; }
+  main.wrap { overflow-x:hidden; }
+  .card { max-width:100%; overflow-x:hidden; }
+
+  .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .page-head h1{margin:0;font-size:22px;font-weight:800;color:var(--text-primary)}
+  .muted{color:var(--text-secondary);font-size:13px}
+
+  .grid{display:grid;gap:12px}
+  .grid.cols-4{grid-template-columns:repeat(4,1fr)}
+  .grid.cols-2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:960px){.grid.cols-4{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:640px){.grid.cols-2,.grid.cols-4{grid-template-columns:1fr}}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--surface-border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:12px
+  }
+  .card h3{margin:0 0 8px;font-size:14px;font-weight:800;color:var(--text-primary)}
+  .big{display:flex;align-items:center;justify-content:space-between}
+  .kpi{font-size:28px;font-weight:800;color:var(--text-primary)}
+  .chip{
+    font-size:11px;font-weight:700;color:var(--text-primary);background:transparent;border:1px solid var(--surface-border);
+    padding:2px 6px;border-radius:999px
+  }
+
+  .status-row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+  .stat-card .num{font-size:22px;font-weight:800;color:var(--text-primary)}
+  .stat-card .lbl{font-size:12px;color:var(--text-secondary)}
+  .status-link{cursor:pointer}
+
+  .table{width:100%;border-collapse:collapse;font-size:13px}
+  .table th,.table td{padding:8px 10px;border-bottom:1px solid var(--surface-border);text-align:left;color:var(--text-primary);}
+  .table th{font-size:12px;color:var(--text-secondary);text-transform:uppercase}
+
+  .sticky-table thead th{position:sticky;top:0;background:var(--surface);z-index:2;border-bottom:2px solid var(--surface-border)}
+
+  .footer-note{margin-top:12px;font-size:12px;color:var(--text-secondary)}
+
+  #invModal{
+    display:none;
+    position:fixed;
+    inset: 0 0 0 var(--nav-w); /* fixed to use nav-w */
+    background:rgba(0,0,0,.35);
+    z-index:4000;
+    align-items:center;
+    justify-content:center;
+    overflow:auto;
+  }
+
+  #invModal .box{
+    background:var(--surface);
+    width: min(1100px, calc(100vw - var(--nav-w) - 40px));
+    max-height:80vh;
+    overflow:auto;
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    border:1px solid var(--surface-border)
+  }
+
+  #invModal .hdr{
+    display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px;
+    border-bottom:1px solid var(--surface-border); gap:10px
+  }
+
+  .inv-head-left{display:flex;flex-direction:column;gap:6px;min-width:0}
+  #invTitle{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary)}
+  .bay-summary{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+  .bay-chip{
+    font-size:12px;font-weight:800;color:var(--text-primary);background:transparent;border:1px solid var(--surface-border);
+    padding:4px 8px;border-radius:999px;white-space:nowrap
+  }
+  .bay-chip .k{color:var(--text-secondary);font-weight:900;margin-right:6px}
+  .bay-chip .v{font-weight:900}
+  .bay-chip.muted{color:var(--text-secondary);font-weight:700}
+
+  .inv-close{
+    appearance:none;cursor:pointer;
+    width:34px;height:34px;min-width:34px;
+    border-radius:10px;border:1px solid var(--surface-border);background:var(--surface);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:18px;font-weight:900;color:var(--text-primary);line-height:1;
+  }
+  .inv-close:hover{opacity:0.8;}
+
+  .aging-scroll{
+    height: calc(100vh - 50px);
+    overflow-y:auto;
+    border:1px solid var(--surface-border);border-radius:10px;background:transparent;
+  }
+
+  .range-strip{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 10px}
+  .range-strip input, .range-strip select{
+    border:1px solid var(--surface-border);border-radius:8px;padding:6px 8px;font-size:13px;
+    background:var(--surface);color:var(--text-primary);
+  }
+  .range-strip button{
+    border:1px solid var(--surface-border);border-radius:8px;padding:6px 10px;background:var(--surface);
+    color:var(--text-primary);cursor:pointer
+  }
+  .range-strip button:hover{opacity:0.8;}
+
+  .chart-area{position:relative; height:260px; width:100%;}
+  .chart-area-sm{position:relative; height:220px; width:100%;}
+  .chart-area-lg{position:relative; height:360px; width:100%; overflow:hidden;}
+  canvas{display:block; width:100% !important; height:100% !important; max-width:100%;}
+
+  .pd-grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:stretch}
+  @media(max-width:1024px){.pd-grid{grid-template-columns:1fr}}
+  .pd-box{
+    background:var(--surface); border:1px solid var(--surface-border); border-radius:10px;
+    padding:10px; box-shadow: var(--shadow);
+  }
+  .pd-chartbox{height:360px; display:flex;}
+  .pd-chartbox .chart-area,.pd-chartbox .chart-area-sm{height:100%; width:100%}
+
+  .table-scroll{
+    max-height:360px; overflow:auto; border:1px solid var(--surface-border); border-radius:10px; background:transparent;
+  }
+
+  .planned-table-scroll{
+    max-height:360px;
+    overflow-y:auto;
+    overflow-x:auto;
+    border:1px solid var(--surface-border);
+    border-radius:10px;
+    background:transparent;
+    scrollbar-gutter: stable;
+  }
+
+  #plannedTable{
+    min-width: 1400px;
+    width: max-content;
+  }
+
+
+  /* ============================================================
+     JINDAL BRAND ALIGNMENT — dashboard only
+     Keeps base.html navigation, theme toggle, marquee, and layout intact.
+  ============================================================ */
+  main.wrap{
+    transition: margin-left .35s var(--ease-spring, cubic-bezier(.34,1.56,.64,1));
+  }
+
+  .page-head h1{
+    color:var(--text-primary);
+    letter-spacing:-.02em;
+  }
+
+  .card{
+    border-color:rgba(68,97,131,.14);
+    box-shadow:var(--shadow-card, var(--shadow));
+  }
+
+  .card:hover{
+    border-color:rgba(41,171,226,.26);
+  }
+
+  .card h3{
+    color:var(--text-primary);
+  }
+
+  .kpi{
+    color:var(--text-primary);
+  }
+
+  .chip,
+  .bay-chip{
+    color:var(--j-twilight);
+    border-color:rgba(68,97,131,.22);
+    background:rgba(68,97,131,.045);
+  }
+
+  .bay-chip .k{
+    color:var(--j-grey);
+  }
+
+  .bay-chip .v{
+    color:var(--j-twilight);
+  }
+
+  .muted,
+  .footer-note,
+  .stat-card .lbl{
+    color:var(--j-grey);
+  }
+
+  .stat-card.status-link{
+    transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+  }
+
+  .stat-card.status-link:hover{
+    border-color:rgba(41,171,226,.34);
+    box-shadow:0 12px 32px rgba(41,171,226,.10);
+    transform:translateY(-1px);
+  }
+
+  .stat-card .num{
+    color:var(--j-twilight);
+  }
+
+  .table th{
+    color:var(--j-twilight);
+    background:rgba(41,171,226,.06);
+  }
+
+  .sticky-table thead th{
+    background:linear-gradient(180deg, rgba(41,171,226,.10), rgba(68,97,131,.05));
+    border-bottom-color:rgba(41,171,226,.22);
+  }
+
+  .table tr:hover td{
+    background:rgba(41,171,226,.045);
+  }
+
+  .range-strip button,
+  .inv-close{
+    border-color:rgba(68,97,131,.22);
+    color:var(--j-twilight);
+  }
+
+  .range-strip button:hover,
+  .inv-close:hover{
+    border-color:rgba(41,171,226,.34);
+    color:var(--j-sky-blue);
+    opacity:1;
+  }
+
+  .range-strip input:focus,
+  .range-strip select:focus{
+    outline:none;
+    border-color:var(--j-sky-blue);
+    box-shadow:var(--ring);
+  }
+
+  #invModal{
+    left:var(--nav-w);
+    inset:0 0 0 var(--nav-w);
+    transition:left .35s var(--ease-spring, cubic-bezier(.34,1.56,.64,1));
+  }
+
+  #invModal .hdr{
+    background:linear-gradient(135deg, rgba(41,171,226,.10), rgba(156,140,111,.08));
+  }
+
+  #invModal .box{
+    border-color:rgba(41,171,226,.22);
+  }
+
+  #plannedChartMetric{
+    border-color:rgba(68,97,131,.20) !important;
+  }
+
+  [data-theme="dark"] .card{
+    border-color:rgba(156,140,111,.16);
+  }
+
+  [data-theme="dark"] .chip,
+  [data-theme="dark"] .bay-chip{
+    color:#d7e5f2 !important;
+    border-color:rgba(156,140,111,.24);
+    background:rgba(68,97,131,.20);
+  }
+
+  [data-theme="dark"] .muted,
+  [data-theme="dark"] .footer-note,
+  [data-theme="dark"] .stat-card .lbl{
+    color:#9fb0c3 !important;
+  }
+
+  [data-theme="dark"] .stat-card .num{
+    color:#8dd7f5 !important;
+  }
+
+  [data-theme="dark"] .sticky-table thead th,
+  [data-theme="dark"] .table th{
+    background:rgba(41,171,226,.10) !important;
+    color:#9bdcf5 !important;
+  }
+
+  [data-theme="dark"] .table tr:hover td{
+    background:rgba(41,171,226,.07) !important;
+  }
+
+  @media(max-width:768px){
+    #invModal{
+      inset:0;
+      left:0;
+      padding:12px;
+    }
+    #invModal .box{
+      width:calc(100vw - 24px);
+      max-height:calc(100vh - 24px);
+    }
+  }
+
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Operational Dashboard</h1>
+  </div>
+
+  <section class="grid cols-4">
+    <div class="card big"><div><h3>Total Plates</h3><div class="kpi">{{ totals.plates }}</div></div><span class="chip">Plates</span></div>
+    <div class="card big"><div><h3>Total Coils</h3><div class="kpi">{{ totals.coils }}</div></div><span class="chip">Coils</span></div>
+    <div class="card big"><div><h3>Deliveries Today</h3><div class="kpi">{{ today.deliveries }}</div></div><span class="chip">Deliveries</span></div>
+    <div class="card big">
+      <div>
+        <h3>Dispatch Mode</h3>
+        <div class="kpi">
+          <span id="kpiRail">{{ modes.rail|default(0,true)|int }}</span> Rail ·
+          <span id="kpiTruck">{{ modes.truck|default(0,true)|int }}</span> Truck
+        </div>
+      </div>
+      <span class="chip">Dispatch</span>
+    </div>
+  </section>
+
+  <section class="grid cols-2" style="margin-top:12px">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h3>Adds vs Dispatch</h3>
+        <div class="range-strip">
+          <label class="muted">Start</label><input type="date" id="startDate"/>
+          <label class="muted">End</label><input type="date" id="endDate"/>
+          <button id="applyRange">Apply</button>
+          <button id="last7">7d</button>
+          <button id="last30">30d</button>
+          <button id="allTime">All</button>
+        </div>
+      </div>
+      <div class="chart-area"><canvas id="trendChart"></canvas></div>
+      <div class="muted" style="margin:6px 0 8px">Adds vs Dispatch (by date)</div>
+
+      <div class="table-scroll">
+        <table class="table sticky-table" id="todayTable">
+          <thead>
+            <tr>
+              <th>Time</th><th>Action</th><th>Type</th><th>ID</th><th>From → To</th>
+              <th>Status</th><th>Customer</th><th>Urgency</th><th>Mode</th><th>Weight</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="10" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Dispatch Breakdown</h3>
+      <div class="chart-area-lg"><canvas id="dispatchChart"></canvas></div>
+      <div class="muted" style="margin-top:8px">Total dispatched by mode (all time)</div>
+
+      <div id="pairsWrap" class="table-scroll" style="margin-top:8px;">
+        <table class="table sticky-table" id="pairsTable">
+          <thead>
+            <tr>
+              <th>Date of Entry</th><th>Date of Dispatch</th><th>Mode</th><th>Batch</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="planned-deliveries" style="margin-top: 1rem;">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;">Planned Deliveries</h3>
+      <div>
+        <select id="plannedChartMetric" class="form-select" style="height:32px; background:var(--surface); color:var(--text-primary); border:1px solid var(--surface-border);">
+          <option value="counts" selected>By Count</option>
+          <option value="weights">By Weight</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="pd-grid">
+      <div class="pd-box pd-chartbox">
+        <div class="chart-area"><canvas id="plannedModeChart"></canvas></div>
+      </div>
+
+      <div class="pd-box">
+        <div class="planned-table-scroll">
+          <table class="table sticky-table" id="plannedTable">
+            <thead>
+              <tr>
+                <th>Plate</th><th>Status</th><th>Bin</th><th>Customer</th>
+                <th>Weight</th><th>Mode</th><th>Added</th><th>Hours</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {% set _fg = (status.get('Finished Good', 0) + status.get('Finished Status', 0)) %}
+  {% set _wip = status.get('WIP', 0) %}
+  {% set _psfs = status.get('PSFS', 0) %}
+  {% set _gfa = status.get('GFA', 0) %}
+  {% set _rfd = status.get('Ready for Dispatch', 0) %}
+  {% set _rej = status.get('Rejected', 0) %}
+  <section class="card" style="margin-top:12px">
+    <h3>Status Overview</h3>
+    <div class="status-row" id="statusRow">
+      <div class="card stat-card status-link" data-status="Finished Good"><div class="num">{{ _fg }}</div><div class="lbl">Finished Good</div></div>
+      <div class="card stat-card status-link" data-status="WIP"><div class="num">{{ _wip }}</div><div class="lbl">WIP</div></div>
+      <div class="card stat-card status-link" data-status="PSFS"><div class="num">{{ _psfs }}</div><div class="lbl">PSFS</div></div>
+      <div class="card stat-card status-link" data-status="GFA"><div class="num">{{ _gfa }}</div><div class="lbl">GFA</div></div>
+      <div class="card stat-card status-link" data-status="Ready for Dispatch"><div class="num">{{ _rfd }}</div><div class="lbl">Ready for Dispatch</div></div>
+      <div class="card stat-card status-link" data-status="Rejected"><div class="num">{{ _rej }}</div><div class="lbl">Rejected</div></div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <h3 style="margin:0;">FG & WIP — Customer-wise</h3>
+      <div class="range-strip" style="margin:0;">
+        <label class="muted">Show</label>
+        <select id="fgWipSelect">
+          <option value="both" selected>FG + WIP</option>
+          <option value="fg">Only FG</option>
+          <option value="wip">Only WIP</option>
+        </select>
+
+        <label class="muted">Customers</label>
+        <select id="fgWipTopN">
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+          <option value="40">40</option>
+          <option value="50">50</option>
+          <option value="60">60</option>
+          <option value="70">70</option>
+          <option value="80">80</option>
+          <option value="90">90</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+    <div class="chart-area-lg"><canvas id="fgWipCustomerChart"></canvas></div>
+    <div class="muted" style="margin-top:6px">
+      Select FG/WIP and number of customers to view only that many customers (sorted by selected metric). Uses full inventory; no limits.
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h3>Aging in Yard — Distribution</h3>
+      <div class="range-strip">
+        <label class="muted">Type</label>
+        <select id="ageType">
+          <option value="">All</option>
+          <option value="Plate">Plate</option>
+          <option value="Coil">Coil</option>
+        </select>
+        <label class="muted">Start</label><input type="date" id="ageStart"/>
+        <label class="muted">End</label><input type="date" id="ageEnd"/>
+        <button id="ageApply">Apply</button>
+        <button id="age30">30d</button>
+        <button id="ageAll">All</button>
+      </div>
+    </div>
+    <div class="chart-area-lg"><canvas id="agingHist"></canvas></div>
+    <div class="muted" style="margin-top:6px">
+      Bins: 0–1d, 1–3d, 3–7d, 7–14d, 14–30d, 30–60d, 60+d (current inventory filtered by entry date)
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h3>Pareto — 30+ Day Stock by Customer</h3>
+      <div class="range-strip">
+        <label class="muted">Start</label><input type="date" id="paretoStart"/>
+        <label class="muted">End</label><input type="date" id="paretoEnd"/>
+        <button id="paretoApply">Apply</button>
+        <button id="pareto30">30d</button>
+        <button id="paretoAll">All</button>
+      </div>
+    </div>
+    <div class="chart-area-lg"><canvas id="paretoChart"></canvas></div>
+    <div class="muted" style="margin-top:6px">Bars: count of 30+ day items by customer; line: cumulative %.</div>
+  </section>
+
+  <section class="grid cols-2" style="margin-top:12px">
+    <div class="card">
+      <h3>Aging in Yard</h3>
+      <div class="aging-scroll" id="agingScroll">
+        <table class="table sticky-table aging-table">
+          <thead><tr><th>Type</th><th>ID</th><th>Bin</th><th>Status</th><th>Hours</th></tr></thead>
+          <tbody>
+            {% for it in aging %}
+              <tr>
+                <td>{{ it.type }}</td>
+                <td>{{ it.plate_id }}</td>
+                <td>{{ it.bin }}</td>
+                <td>{{ it.status }}</td>
+                <td class="hours">{{ it.hours }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="muted">No items.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Recent Activity</h3>
+      <div class="table-scroll">
+        <table class="table sticky-table">
+          <thead><tr><th>When</th><th>Action</th><th>Item</th><th>From → To</th></tr></thead>
+          <tbody>
+            {% for tx in recent %}
+              <tr>
+                <td>{{ tx.timestamp }}</td>
+                <td>
+                  {% set _act = (tx.action or '')|lower %}
+                  {% set _st  = (tx.status or '')|lower %}
+                  {% if _st == 'dispatched' or _act == 'removed' %}
+                    Dispatched
+                  {% else %}
+                    {{ tx.action }}
+                  {% endif %}
+                </td>
+                <td>{{ tx.item_type }} {{ tx.item_id }}</td>
+                <td>{{ tx.source_bin or '—' }} → {{ tx.dest_bin or '—' }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="muted">No recent transactions.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="footer-note">See more in <a href="{{ url_for('transactions_page') }}">Transaction History</a></div>
+    </div>
+  </section>
+
+  <div id="invModal">
+    <div class="box">
+      <div class="hdr">
+        <div class="inv-head-left">
+          <strong style="font-size:14px; color:var(--text-primary);" id="invTitle">Inventory</strong>
+          <div class="bay-summary" id="baySummary"></div>
+        </div>
+        <button id="invClose" class="inv-close" aria-label="Close">×</button>
+      </div>
+      <div style="padding:10px;">
+        <table class="table sticky-table" id="invTable">
+          <thead>
+            <tr>
+              <th>Type</th><th>ID</th><th>Bin</th><th>Status</th><th>Customer</th><th>Urgency</th>
+              <th>Grade</th><th>Weight</th><th>L×W×T</th><th>Pieces</th><th>Mode</th><th>Added</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="12" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    // ------- Helpers -------
+    const toLocal = (iso) => { if(!iso) return ''; try { return new Date(iso).toLocaleString(); } catch(e){ return iso; } };
+    const toDateStr = (d) => d.toISOString().slice(0,10);
+
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.responsive = true;
+
+    const JINDAL_CHART_COLORS = {
+      saffron: '#F47920',
+      springGreen: '#50B848',
+      skyBlue: '#29ABE2',
+      grey: '#636466',
+      twilight: '#446183',
+      burgundy: '#7C4548',
+      moss: '#8FA35D',
+      peach: '#D78E5E',
+      oyster: '#9C8C6F'
+    };
+
+    Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || JINDAL_CHART_COLORS.grey;
+    Chart.defaults.borderColor = 'rgba(68,97,131,.18)';
+    Chart.defaults.elements.bar.backgroundColor = 'rgba(41,171,226,.38)';
+    Chart.defaults.elements.bar.borderColor = JINDAL_CHART_COLORS.skyBlue;
+    Chart.defaults.elements.line.borderColor = JINDAL_CHART_COLORS.skyBlue;
+    Chart.defaults.elements.line.backgroundColor = 'rgba(41,171,226,.14)';
+    Chart.defaults.elements.point.backgroundColor = JINDAL_CHART_COLORS.saffron;
+    Chart.defaults.elements.arc.backgroundColor = [
+      JINDAL_CHART_COLORS.skyBlue,
+      JINDAL_CHART_COLORS.saffron,
+      JINDAL_CHART_COLORS.twilight,
+      JINDAL_CHART_COLORS.springGreen,
+      JINDAL_CHART_COLORS.moss,
+      JINDAL_CHART_COLORS.peach,
+      JINDAL_CHART_COLORS.oyster
+    ];
+
+    const startInput = document.getElementById('startDate');
+    const endInput   = document.getElementById('endDate');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d30  = new Date(today); d30.setDate(d30.getDate()-30);
+    startInput.value = toDateStr(d30);
+    endInput.value   = toDateStr(today);
+
+    document.getElementById('last7').addEventListener('click', ()=>{
+      const d = new Date(); d.setHours(0,0,0,0);
+      const s = new Date(d); s.setDate(s.getDate()-7);
+      startInput.value = toDateStr(s); endInput.value = toDateStr(d); loadRange();
+    });
+    document.getElementById('last30').addEventListener('click', ()=>{
+      const d = new Date(); d.setHours(0,0,0,0);
+      const s = new Date(d); s.setDate(s.getDate()-30);
+      startInput.value = toDateStr(s); endInput.value = toDateStr(d); loadRange();
+    });
+    document.getElementById('allTime').addEventListener('click', ()=>{
+      startInput.value = ''; endInput.value = ''; loadRange();
+    });
+    document.getElementById('applyRange').addEventListener('click', loadRange);
+
+    function normalizeMode(raw){
+      const s = String(raw||'').trim().toUpperCase();
+      if (!s) return 'Unknown';
+      if (s.includes('RAIL') || s === 'ZRAL' || s === 'ZRLA' || /\bBY\s+RAIL\b/.test(s)) return 'Rail';
+      if (s.includes('TRUCK') || s.includes('ROAD') || /\bBY\s+TRUCK\b/.test(s) || /ZTRK|ZTRL|ZTLR/.test(s)) return 'Truck';
+      return 'Unknown';
+    }
+    function ageBin(days){
+      if (days < 1) return '0–1d';
+      if (days < 3) return '1–3d';
+      if (days < 7) return '3–7d';
+      if (days < 14) return '7–14d';
+      if (days < 30) return '14–30d';
+      if (days < 60) return '30–60d';
+      return '60+d';
+    }
+
+    async function fetchTx(start, end){
+      const qs = new URLSearchParams();
+      if (start) qs.set('start', start);
+      if (end)   qs.set('end',   end);
+      qs.set('limit', '20000');
+      const url = `/api/transactions${qs.toString() ? ('?'+qs.toString()) : ''}`;
+      const res = await fetch(url, {headers:{'X-Requested-With':'fetch'}});
+      return res.ok ? (await res.json()) : [];
+    }
+
+    async function fetchTxAllHistory(){
+      const all = [];
+      let endCursor = '';
+      let guard = 36;
+      while (guard-- > 0){
+        const batch = await fetchTx('', endCursor);
+        if (!batch.length) break;
+        all.push(...batch);
+
+        const oldest = batch
+          .map(r => (r.timestamp || '').slice(0,10))
+          .filter(Boolean)
+          .sort()[0];
+        if (!oldest) break;
+
+        const d = new Date(oldest + 'T00:00:00Z');
+        d.setDate(d.getDate() - 1);
+        endCursor = d.toISOString().slice(0,10);
+        if (parseInt(endCursor.slice(0,4)) < 2000) break;
+      }
+      return all;
+    }
+
+    async function fetchTrendFromSheet(start, end){
+      const qs = new URLSearchParams();
+      if (start) qs.set('start', start);
+      if (end)   qs.set('end',   end);
+      qs.set('limit', '200000');
+      const url = `/api/adds_dispatch_trend?${qs.toString()}`;
+      const res = await fetch(url, {headers:{'X-Requested-With':'fetch'}});
+      return res.ok ? (await res.json()) : {labels:[], added:[], dispatch:[]};
+    }
+
+    let dispatchChart;
+    async function loadDispatchAnalytics(){
+      try{
+        const rows = await fetchTxAllHistory();
+        const counts = {Rail:0, Truck:0, Unknown:0};
+        const firstAdded = {};
+        const dispatchInfo = {};
+
+        for(const r of rows){
+          const a = String(r.action||'').toLowerCase();
+          if (a === 'added'){
+            const was = firstAdded[r.item_id];
+            if (!was || (r.timestamp && r.timestamp < was)) firstAdded[r.item_id] = r.timestamp || was || '';
+            continue;
+          }
+          const after = r.after_snapshot || {};
+          const st = String(r.status || after.status || '').toLowerCase();
+          const isDispatch = (a === 'removed') || (a === 'edited' && st === 'dispatched');
+          if(!isDispatch) continue;
+
+          const mode = normalizeMode(
+            after.dispatch_mode || after.transport || after.mode ||
+            (r.before_snapshot||{}).dispatch_mode || (r.before_snapshot||{}).transport || (r.before_snapshot||{}).mode
+          );
+          counts[mode] = (counts[mode]||0) + 1;
+          if (!dispatchInfo[r.item_id]) dispatchInfo[r.item_id] = {ts:r.timestamp||'', mode, before:r.before_snapshot||{}, after:r.after_snapshot||{}};
+        }
+
+        const el = document.getElementById('dispatchChart');
+        if(el){
+          if(dispatchChart) dispatchChart.destroy();
+          const labels = Object.keys(counts);
+          const values = labels.map(k => Number(counts[k]||0));
+          dispatchChart = new Chart(el,{
+            type:'doughnut',
+            data:{ labels, datasets:[{ data: values }] },
+            options:{ plugins:{legend:{position:'bottom'}}, cutout:'60%' }
+          });
+        }
+
+        const tbody = document.querySelector('#pairsTable tbody');
+        const pairs = [];
+        for (const id of Object.keys(dispatchInfo)){
+          let entry = firstAdded[id];
+          const info = dispatchInfo[id];
+          if (!entry){
+            entry = (info.before.added_at || info.before.created_at || info.after.added_at || info.after.created_at || '') || '';
+          }
+          const disp  = info.ts;
+          const mode  = info.mode || 'Unknown';
+          if (disp){ pairs.push({entry, disp, mode, id}); }
+        }
+        pairs.sort((a,b)=> (a.disp||'').localeCompare(b.disp||''));
+        tbody.innerHTML = pairs.length ? '' : '<tr><td colspan="4" class="muted">No dispatched items yet.</td></tr>';
+        for (const p of pairs){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${p.entry ? toLocal(p.entry) : '—'}</td><td>${toLocal(p.disp)}</td><td>${p.mode}</td><td>${p.id}</td>`;
+          tbody.appendChild(tr);
+        }
+      }catch(e){
+        const el = document.getElementById('dispatchChart');
+        if(el){
+          if(dispatchChart) dispatchChart.destroy();
+          dispatchChart = new Chart(el,{
+            type:'doughnut',
+            data:{ labels:['Rail','Truck','Unknown'], datasets:[{ data:[0,0,0] }] },
+            options:{plugins:{legend:{position:'bottom'}}, cutout:'60%'}
+          });
+        }
+      }
+    }
+
+    let trendChart;
+    async function loadRange(){
+      const tb = document.querySelector('#todayTable tbody');
+      tb.innerHTML = '<tr><td colspan="10" class="muted">Loading…</td></tr>';
+
+      const start = (startInput.value || '').trim();
+      const end   = (endInput.value   || '').trim();
+
+      let rows = [];
+      try{
+        const trend = await fetchTrendFromSheet(start, end);
+        const labels = trend.labels || [];
+        const adds   = trend.added || [];
+        const disp   = trend.dispatch || [];
+
+        const tc = document.getElementById('trendChart');
+        if(tc){
+          if(trendChart) trendChart.destroy();
+          trendChart = new Chart(tc,{
+  type:'line',
+  data:{
+    labels,
+    datasets:[
+      {
+        label:'Added',
+        data:adds,
+        tension:.25,
+        borderWidth:3,
+        pointRadius:3,
+        pointHoverRadius:5,
+        fill:false,
+        yAxisID:'y',
+        borderColor:JINDAL_CHART_COLORS.skyBlue,
+        backgroundColor:'rgba(41,171,226,.16)',
+        pointBackgroundColor:JINDAL_CHART_COLORS.skyBlue,
+        pointBorderColor:'#ffffff',
+        pointBorderWidth:1.5
+      },
+      {
+        label:'Dispatch',
+        data:disp,
+        tension:.25,
+        borderWidth:3,
+        pointRadius:3,
+        pointHoverRadius:5,
+        fill:false,
+        yAxisID:'y1',
+        borderColor:JINDAL_CHART_COLORS.saffron,
+        backgroundColor:'rgba(244,121,32,.16)',
+        pointBackgroundColor:JINDAL_CHART_COLORS.saffron,
+        pointBorderColor:'#ffffff',
+        pointBorderWidth:1.5
+      }
+    ]
+  },
+  options:{
+    plugins:{legend:{position:'bottom'}},
+    scales:{
+      y:{
+        beginAtZero:true,
+        ticks:{precision:0},
+        title:{display:true, text:'Added', color:JINDAL_CHART_COLORS.skyBlue}
+      },
+      y1:{
+        beginAtZero:true,
+        position:'right',
+        grid:{drawOnChartArea:false},
+        ticks:{precision:0},
+        title:{display:true, text:'Dispatch', color:JINDAL_CHART_COLORS.saffron}
+      },
+      x:{ ticks:{callback:(v,i)=>labels[i]} }
+    }
+  }
+});
+        }
+
+        if (!start && !end){
+          rows = await fetchTxAllHistory();
+        }else{
+          rows = await fetchTx(start, end);
+        }
+
+        const details = [];
+        for(const r of rows){
+          if (details.length >= 300) break;
+
+          const after = r.after_snapshot || {};
+          const before= r.before_snapshot || {};
+          const modeRaw = after.dispatch_mode || after.transport || after.mode ||
+                          before.dispatch_mode || before.transport || before.mode || '';
+          details.push({
+            timestamp: r.timestamp,
+            action: r.action,
+            item_type: r.item_type,
+            item_id: r.item_id,
+            source_bin: r.source_bin,
+            dest_bin: r.dest_bin,
+            status: r.status,
+            customer: r.customer,
+            urgency: r.urgency,
+            dispatch_mode: normalizeMode(modeRaw),
+            weight: r.weight
+          });
+        }
+
+        tb.innerHTML = details.length ? '' : '<tr><td colspan="10" class="muted">No activity.</td></tr>';
+        for(const d of details){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${toLocal(d.timestamp)}</td>
+            <td style="font-weight:700">${d.action||''}</td>
+            <td>${d.item_type||''}</td>
+            <td>${d.item_id||''}</td>
+            <td>${d.source_bin||'—'} → ${d.dest_bin||'—'}</td>
+            <td>${d.status||''}</td>
+            <td>${d.customer||''}</td>
+            <td>${d.urgency||''}</td>
+            <td>${d.dispatch_mode||''}</td>
+            <td>${d.weight ?? ''}</td>
+          `;
+          tb.appendChild(tr);
+        }
+      }catch(e){
+        console.error(e);
+        tb.innerHTML = '<tr><td colspan="10" class="muted">Failed to load.</td></tr>';
+      }
+    }
+
+    let agingHistChart;
+    function hoursBetween(iso){
+      if(!iso) return 0;
+      try{
+        const t = new Date(iso).getTime();
+        const now = Date.now();
+        return Math.max(0, (now - t) / (1000*60*60));
+      }catch(e){ return 0; }
+    }
+
+    const ageStart = document.getElementById('ageStart');
+    const ageEnd   = document.getElementById('ageEnd');
+    const aEnd = new Date(); aEnd.setHours(0,0,0,0);
+    const aStart = new Date(aEnd); aStart.setDate(aStart.getDate()-30);
+    ageStart.value = toDateStr(aStart);
+    ageEnd.value   = toDateStr(aEnd);
+
+    document.getElementById('ageApply').addEventListener('click', loadAgingHistogram);
+    document.getElementById('age30').addEventListener('click', ()=>{
+      const end = new Date(); end.setHours(0,0,0,0);
+      const start = new Date(end); start.setDate(start.getDate()-30);
+      ageStart.value = toDateStr(start); ageEnd.value = toDateStr(end); loadAgingHistogram();
+    });
+    document.getElementById('ageAll').addEventListener('click', ()=>{
+      ageStart.value = ''; ageEnd.value = ''; loadAgingHistogram();
+    });
+    document.getElementById('ageType').addEventListener('change', loadAgingHistogram);
+
+    async function loadAgingHistogram(){
+      const typeFilter = document.getElementById('ageType').value || '';
+      const dStart = ageStart.value ? new Date(ageStart.value) : null;
+      const dEnd   = ageEnd.value ? new Date(ageEnd.value) : null;
+
+      try{
+        const res = await fetch('/api/inventory?limit=5000', {headers:{'X-Requested-With':'fetch'}});
+        const rows = res.ok ? await res.json() : [];
+        const counts = {'0–1d':0,'1–3d':0,'3–7d':0,'7–14d':0,'14–30d':0,'30–60d':0,'60+d':0};
+
+        for (const r of rows){
+          if (typeFilter && String(r.type||'') !== typeFilter) continue;
+          const entry = (r.added_at || r.created_at || '').slice(0,10);
+          if (dStart && entry && entry < ageStart.value) continue;
+          if (dEnd   && entry && entry > ageEnd.value) continue;
+
+          const startIso = r.added_at || r.created_at;
+          const days = (hoursBetween(startIso) / 24);
+          counts[ageBin(days)] += 1;
+        }
+
+        const labels = Object.keys(counts);
+        const values = labels.map(k => counts[k]);
+
+        const cv = document.getElementById('agingHist');
+        if (cv){
+          if (agingHistChart) agingHistChart.destroy();
+          agingHistChart = new Chart(cv, {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'Items', data: values, borderWidth: 1 }] },
+            options: {
+              plugins:{ legend:{ display:false } },
+              scales: { y: { beginAtZero: true, ticks:{ precision:0 } } }
+            }
+          });
+        }
+      }catch(e){
+        const cv = document.getElementById('agingHist');
+        if (cv){
+          if (agingHistChart) agingHistChart.destroy();
+          agingHistChart = new Chart(cv, {
+            type: 'bar',
+            data: { labels:['0–1d','1–3d','3–7d','7–14d','14–30d','30–60d','60+d'], datasets:[{ data:[0,0,0,0,0,0,0] }] },
+            options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}}} }
+          });
+        }
+      }
+    }
+
+    let plannedModeChart;
+    async function loadPlannedDeliveries(){
+      const tbody = document.querySelector('#plannedTable tbody');
+      const metricSel = document.getElementById('plannedChartMetric');
+      const canvas = document.getElementById('plannedModeChart');
+
+      let rows = [];
+      let counts = { Rail: 0, Truck: 0 };
+      let weights = { Rail: 0, Truck: 0 };
+
+      function rebuildChart(){
+        if (!canvas) return;
+        const labels = ['Rail', 'Road'];
+        const useWeights = (metricSel && metricSel.value === 'weights');
+        const vals = useWeights
+          ? [Number(weights.Rail||0), Number(weights.Truck||0)]
+          : [Number(counts.Rail||0),  Number(counts.Truck||0)];
+        const dsLabel = useWeights ? 'Planned (Weight)' : 'Planned (Count)';
+
+        if (plannedModeChart) plannedModeChart.destroy();
+        plannedModeChart = new Chart(canvas, {
+          type: 'bar',
+          data: { labels, datasets: [{ label: dsLabel, data: vals, borderWidth: 1 }] },
+          options: { scales:{ y:{ beginAtZero:true, ticks:{precision:0} } }, plugins:{ legend:{ display:true, position:'bottom' } } }
+        });
+      }
+
+      function renderTable(){
+        if (!tbody) return;
+        tbody.innerHTML = rows.length ? '' : '<tr><td colspan="8" class="muted">No planned deliveries.</td></tr>';
+        for (const r of rows){
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.plate_id || ''}</td>
+            <td>${r.status || ''}</td>
+            <td>${r.bin || ''}</td>
+            <td>${r.customer || ''}</td>
+            <td>${r.weight ?? ''}</td>
+            <td>${r.mode || normalizeMode(r.dispatch_mode) || ''}</td>
+            <td>${toLocal(r.added_at || r.created_at)}</td>
+            <td>${(r.hours ?? Math.floor(hoursBetween(r.added_at || r.created_at))) || 0}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      function accumulate(mode, w){
+        if (mode === 'Rail' || mode === 'Truck'){
+          counts[mode] = (counts[mode]||0) + 1;
+          const val = parseFloat(w||0) || 0;
+          weights[mode] = (weights[mode]||0) + val;
+        }
+      }
+
+      try{
+        const res = await fetch('/api/planned_deliveries', {headers:{'X-Requested-With':'fetch'}});
+        if (res.ok){
+          const data = await res.json();
+          rows = Array.isArray(data.rows) ? data.rows : [];
+          const sc = (data.summary && data.summary.counts) || {};
+          const sw = (data.summary && data.summary.weights) || {};
+          counts = { Rail: Number(sc.Rail||0), Truck: Number(sc.Truck||0) };
+          weights= { Rail: Number(sw.Rail||0), Truck: Number(sw.Truck||0) };
+        }else{
+          const inv = await fetch('/api/inventory?limit=5000', {headers:{'X-Requested-With':'fetch'}});
+          const items = inv.ok ? await inv.json() : [];
+          rows = [];
+          for (const r of items){
+            const st = String(r.status||'').toLowerCase();
+            if (!r.dispatch_mode || st === 'dispatched') continue;
+            const mode = normalizeMode(r.dispatch_mode);
+            rows.push({
+              plate_id: r.plate_id, status: r.status, bin: r.bin, customer: r.customer,
+              weight: r.weight, dispatch_mode: r.dispatch_mode, mode,
+              added_at: r.added_at || r.created_at, hours: Math.floor(hoursBetween(r.added_at || r.created_at))
+            });
+            accumulate(mode, r.weight);
+          }
+        }
+      }catch(e){
+        rows = []; counts = {Rail:0, Truck:0}; weights = {Rail:0, Truck:0};
+      }
+
+      renderTable();
+      rebuildChart();
+
+      if (metricSel){ metricSel.addEventListener('change', rebuildChart); }
+    }
+
+    const paretoStart = document.getElementById('paretoStart');
+    const paretoEnd   = document.getElementById('paretoEnd');
+    (()=>{
+      const e = new Date(); e.setHours(0,0,0,0);
+      const s = new Date(e); s.setDate(s.getDate()-30);
+      paretoStart.value = toDateStr(s); paretoEnd.value = toDateStr(e);
+    })();
+    document.getElementById('paretoApply').addEventListener('click', loadPareto);
+    document.getElementById('pareto30').addEventListener('click', ()=>{
+      const e = new Date(); e.setHours(0,0,0,0); const s = new Date(e); s.setDate(s.getDate()-30);
+      paretoStart.value = toDateStr(s); paretoEnd.value = toDateStr(e); loadPareto();
+    });
+    document.getElementById('paretoAll').addEventListener('click', ()=>{
+      paretoStart.value = ''; paretoEnd.value = ''; loadPareto();
+    });
+
+    let paretoChart;
+    async function loadPareto(){
+      const res = await fetch('/api/inventory?limit=5000', {headers:{'X-Requested-With':'fetch'}});
+      const rows = res.ok ? await res.json() : [];
+      const sStr = paretoStart.value || '';
+      const eStr = paretoEnd.value || '';
+      const today = new Date(); today.setHours(0,0,0,0);
+      const byCustomer = {};
+
+      for (const r of rows){
+        const entry = (r.added_at || r.created_at || '').slice(0,10);
+        if (sStr && entry && entry < sStr) continue;
+        if (eStr && entry && entry > eStr) continue;
+
+        const startIso = r.added_at || r.created_at;
+        const age = (today - new Date(startIso)) / 86400000;
+        if (age < 30) continue;
+
+        const cust = r.customer || 'Unknown';
+        byCustomer[cust] = (byCustomer[cust] || 0) + 1;
+      }
+
+      const pairs = Object.entries(byCustomer).sort((a,b)=>b[1]-a[1]);
+      const labels = pairs.map(p=>p[0]);
+      const counts = pairs.map(p=>p[1]);
+
+      const total = counts.reduce((a,b)=>a+b,0) || 1;
+      let cum=0; const cumulative = counts.map(v=> (cum+=v, Math.round((cum/total)*100)));
+
+      const el = document.getElementById('paretoChart');
+      if (paretoChart) paretoChart.destroy();
+      paretoChart = new Chart(el, {
+        type:'bar',
+        data:{
+          labels,
+          datasets:[
+            {label:'30+ day items', data:counts, yAxisID:'y', borderWidth:1},
+            {label:'Cumulative %', data:cumulative, type:'line', yAxisID:'y1', pointRadius:2, borderWidth:2}
+          ]
+        },
+        options:{
+          plugins:{legend:{position:'bottom'}},
+          scales:{
+            y:{beginAtZero:true, ticks:{precision:0}, title:{display:true, text:'Count'}},
+            y1:{beginAtZero:true, min:0, max:100, position:'right', grid:{display:false}, ticks:{callback:v=>v+'%'}, title:{display:true, text:'Cumulative %'}}
+          }
+        }
+      });
+    }
+
+    loadDispatchAnalytics();
+    loadRange();
+    loadPlannedDeliveries();
+    loadAgingHistogram();
+    loadPareto();
+
+    const statusBuckets = {
+      "Finished Good": [],
+      "WIP": [],
+      "PSFS": [],
+      "GFA": [],
+      "Ready for Dispatch": [],
+      "Rejected": []
+    };
+
+    function canonicalStatus(raw){
+      const s = String(raw||'').toLowerCase();
+      if (/reject/.test(s)) return "Rejected";
+      if (/ready/.test(s)) return "Ready for Dispatch";
+      if (/psfs/.test(s)) return "PSFS";
+      if (/gfa/.test(s))  return "GFA";
+      if (/(^|\b)wip\b/.test(s) || /hot/.test(s)) return "WIP";
+      if (/finish/.test(s) || /\bfg\b/.test(s) || /finished\s*status/.test(s)) return "Finished Good";
+      return null;
+    }
+
+    let fgWipCustomerChart;
+    let fgWipAllRowsCache = [];
+
+    function buildFgWipCustomerChart(allRows, mode){
+      const chosen = (mode || (document.getElementById('fgWipSelect')?.value || 'both')).toLowerCase();
+      const topN = parseInt(document.getElementById('fgWipTopN')?.value || '10', 10) || 10;
+
+      const map = {};
+      for (const r of (allRows || [])){
+        const canon = canonicalStatus(r.status);
+        if (canon !== "Finished Good" && canon !== "WIP") continue;
+
+        const cust = (r.customer && String(r.customer).trim()) ? String(r.customer).trim() : 'Unknown';
+        if (!map[cust]) map[cust] = {fg:0, wip:0};
+
+        if (canon === "Finished Good") map[cust].fg += 1;
+        if (canon === "WIP") map[cust].wip += 1;
+      }
+
+      const pairs = Object.entries(map).sort((a,b)=>{
+        const aa = a[1], bb = b[1];
+        const va = (chosen === 'fg')  ? aa.fg  : (chosen === 'wip') ? aa.wip : (aa.fg + aa.wip);
+        const vb = (chosen === 'fg')  ? bb.fg  : (chosen === 'wip') ? bb.wip : (bb.fg + bb.wip);
+        return vb - va;
+      }).slice(0, topN);
+
+      const labels = pairs.map(p=>p[0]);
+      const fgVals  = pairs.map(p=>p[1].fg);
+      const wipVals = pairs.map(p=>p[1].wip);
+
+      const el = document.getElementById('fgWipCustomerChart');
+      if (!el) return;
+
+      const datasets = [];
+if (chosen === 'both' || chosen === 'fg'){
+  datasets.push({
+    label: 'Finished Good',
+    data: fgVals,
+    borderWidth: 2,
+    borderColor: JINDAL_CHART_COLORS.springGreen,
+    backgroundColor: 'rgba(80,184,72,.42)',
+    hoverBackgroundColor: 'rgba(80,184,72,.62)',
+    borderRadius: 4
+  });
+}
+if (chosen === 'both' || chosen === 'wip'){
+  datasets.push({
+    label: 'WIP',
+    data: wipVals,
+    borderWidth: 2,
+    borderColor: JINDAL_CHART_COLORS.burgundy,
+    backgroundColor: 'rgba(124,69,72,.42)',
+    hoverBackgroundColor: 'rgba(124,69,72,.62)',
+    borderRadius: 4
+  });
+}
+
+      if (fgWipCustomerChart) fgWipCustomerChart.destroy();
+      fgWipCustomerChart = new Chart(el, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+          plugins:{ legend:{ position:'bottom' } },
+          scales:{
+            x:{ ticks:{ autoSkip:true, maxRotation:60, minRotation:0 } },
+            y:{ beginAtZero:true, ticks:{ precision:0 } }
+          }
+        }
+      });
+    }
+
+    async function loadStatusOverview(){
+      try{
+        const res = await fetch('/api/inventory?limit=5000', {headers:{'X-Requested-With':'fetch'}});
+        if(!res.ok) return;
+        const rows = await res.json();
+
+        for (const k of Object.keys(statusBuckets)) statusBuckets[k] = [];
+        for (const r of rows){
+          const canon = canonicalStatus(r.status);
+          if (canon && statusBuckets[canon]) statusBuckets[canon].push(r);
+        }
+        document.querySelectorAll('.status-link').forEach(el=>{
+          const lbl = el.dataset.status;
+          const numEl = el.querySelector('.num');
+          numEl.textContent = (statusBuckets[lbl]||[]).length;
+        });
+
+        fgWipAllRowsCache = rows || [];
+        buildFgWipCustomerChart(fgWipAllRowsCache);
+
+        const sel = document.getElementById('fgWipSelect');
+        if (sel && !sel.dataset.bound){
+          sel.dataset.bound = '1';
+          sel.addEventListener('change', ()=>{
+            buildFgWipCustomerChart(fgWipAllRowsCache, sel.value);
+          });
+        }
+
+        const topSel = document.getElementById('fgWipTopN');
+        if (topSel && !topSel.dataset.bound){
+          topSel.dataset.bound = '1';
+          topSel.addEventListener('change', ()=>{
+            buildFgWipCustomerChart(fgWipAllRowsCache, sel ? sel.value : 'both');
+          });
+        }
+      }catch(e){
+        console.error('status overview load failed', e);
+      }
+    }
+    loadStatusOverview();
+
+    const modal = document.getElementById('invModal');
+    const invTitle = document.getElementById('invTitle');
+    const invTableBody = document.querySelector('#invTable tbody');
+    const baySummary = document.getElementById('baySummary');
+
+    document.getElementById('invClose').addEventListener('click', ()=> modal.style.display='none');
+    modal.addEventListener('click',(e)=>{ if(e.target===modal) modal.style.display='none'; });
+
+    function renderInvRows(rows){
+      invTableBody.innerHTML = rows.length ? '' : '<tr><td colspan="12" class="muted">No items.</td></tr>';
+      for(const r of rows){
+        const dims = [r.length||'', r.width||'', r.thickness||''].filter(Boolean).join('×');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.type||''}</td>
+          <td>${r.plate_id||''}</td>
+          <td>${r.bin||''}</td>
+          <td>${r.status||''}</td>
+          <td>${r.customer||''}</td>
+          <td>${r.urgency||''}</td>
+          <td>${r.grade||''}</td>
+          <td>${r.weight ?? ''}</td>
+          <td>${dims||''}</td>
+          <td>${r.pieces ?? ''}</td>
+          <td>${r.dispatch_mode||''}</td>
+          <td>${toLocal(r.added_at||r.created_at)}</td>
+        `;
+        invTableBody.appendChild(tr);
+      }
+    }
+
+    function getBayFromBin(bin){
+      const s = String(bin||'').trim().toUpperCase();
+      const m = s.match(/^(EF|AC|DE|CD)\b/);
+      if (m) return m[1];
+      const m2 = s.match(/^(EF|AC|DE|CD)/);
+      if (m2) return m2[1];
+      return 'Other';
+    }
+
+    function fmtTons(x){
+      const n = Number(x||0);
+      if (!isFinite(n)) return '0.000';
+      return n.toFixed(3);
+    }
+
+    function renderBaySummary(rows){
+      if (!baySummary) return;
+      baySummary.innerHTML = '';
+
+      const order = ['EF','AC','DE','CD','Other'];
+      const by = {};
+      for (const k of order) by[k] = {count:0, weight:0};
+
+      for (const r of rows){
+        const bay = getBayFromBin(r.bin);
+        if (!by[bay]) by[bay] = {count:0, weight:0};
+        by[bay].count += 1;
+
+        const w = parseFloat(r.weight ?? r.Weight ?? 0);
+        if (isFinite(w)) by[bay].weight += w;
+      }
+
+      let shown = 0;
+      for (const k of order){
+        const v = by[k];
+        if (!v || (v.count === 0 && v.weight === 0)) continue;
+
+        const chip = document.createElement('div');
+        chip.className = 'bay-chip';
+        chip.innerHTML = `<span class="k">${k}</span><span class="v">${v.count}</span> • <span class="v">${fmtTons(v.weight)}t</span>`;
+        baySummary.appendChild(chip);
+        shown++;
+      }
+
+      if (!shown){
+        const chip = document.createElement('div');
+        chip.className = 'bay-chip muted';
+        chip.textContent = 'No bay data';
+        baySummary.appendChild(chip);
+      }
+    }
+
+    async function openStatus(statusLabel){
+      invTitle.textContent = `Inventory — ${statusLabel}`;
+      modal.style.display = 'flex';
+      invTableBody.innerHTML = '<tr><td colspan="12" class="muted">Loading…</td></tr>';
+      if (baySummary) baySummary.innerHTML = '<div class="bay-chip muted">Loading bays…</div>';
+
+      try{
+        const res = await fetch(`/api/inventory?status=${encodeURIComponent(statusLabel)}`,
+          {headers:{'X-Requested-With':'fetch'}});
+        if(res.ok){
+          const rows = await res.json();
+          if (rows && rows.length){
+            renderBaySummary(rows);
+            renderInvRows(rows);
+            return;
+          }
+        }
+        renderBaySummary(statusBuckets[statusLabel] || []);
+        renderInvRows(statusBuckets[statusLabel] || []);
+      }catch(e){
+        console.error(e);
+        renderBaySummary(statusBuckets[statusLabel] || []);
+        renderInvRows(statusBuckets[statusLabel] || []);
+      }
+    }
+
+    document.querySelectorAll('.status-link').forEach(el=>{
+      el.addEventListener('click', ()=> openStatus(el.dataset.status));
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,17 @@
+Flask==3.0.3
+SQLAlchemy==2.0.36
+pandas==2.2.3
+openpyxl==3.1.5
+waitress
+oracledb
+requests==2.32.3
+flask-cors==4.0.1
+qrcode[pil]==7.4.2
+Pillow==10.4.0
+google-generativeai
+
+# Optional: only needed if you point DATABASE_URL to Postgres instead of SQLite
+psycopg[binary]==3.2.12
+
+# Helpful on Windows for timezone data used by pandas/date parsing
+tzdata==2024.1

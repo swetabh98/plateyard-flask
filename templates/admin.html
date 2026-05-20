@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel • Plate Mill Yard Management{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="/static/admin.css">
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrap">
+  <h1 class="admin-header" style="color: var(--text-primary);">🛡️ Admin Dashboard</h1>
+
+  <div class="admin-card" style="background: var(--surface); border: 1px solid var(--surface-border);">
+    <h2 style="color: var(--text-primary);">Pending Approvals</h2>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th style="color: var(--text-secondary);">Name</th>
+          <th style="color: var(--text-secondary);">Email</th>
+          <th style="color: var(--text-secondary);">Registered At</th>
+          <th style="color: var(--text-secondary);">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in pending %}
+        <tr>
+          <td style="color: var(--text-primary);">{{ u.name }}</td>
+          <td style="color: var(--text-primary);">{{ u.email }}</td>
+          <td style="color: var(--text-primary);">{{ u.created_at }}</td>
+          <td>
+            <button class="btn-approve" onclick="approveUser({{ u.id }})">Approve</button>
+            <button class="btn-reject" onclick="rejectUser({{ u.id }})">Reject</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 24px;">No pending users.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="admin-card" style="background: var(--surface); border: 1px solid var(--surface-border);">
+    <h2 style="color: var(--text-primary);">Approved Users & Usage Analytics</h2>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th style="color: var(--text-secondary);">Name</th>
+          <th style="color: var(--text-secondary);">Email</th>
+          <th style="color: var(--text-secondary);">Total Time Spent</th>
+          <th style="color: var(--text-secondary);">Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in approved %}
+        <tr>
+          <td style="color: var(--text-primary);">{{ u.name }}</td>
+          <td style="color: var(--text-primary);">{{ u.email }}</td>
+          <td style="font-family: monospace; font-weight: 700; font-size: 15px; color: var(--text-primary);">
+            {% set hours = (u.time_spent // 3600) | int %}
+            {% set mins = ((u.time_spent % 3600) // 60) | int %}
+            {{ hours }}h {{ mins }}m
+          </td>
+          <td>
+            {% if u.is_admin %}
+              <span class="badge-admin">Admin</span>
+            {% else %}
+              <span class="badge-user">User</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align: center; color: var(--text-secondary); font-style: italic; padding: 24px;">No approved users yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="/static/admin.js"></script>
+{% endblock %}

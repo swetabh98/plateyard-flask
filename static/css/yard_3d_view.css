@@ -1,0 +1,257 @@
+/* yard_3d_view.css 
+   Fully integrated with base.html. 
+   REMOVED all conflicting nav and body rules. 
+*/
+
+/* 1. Core Layout Structure (Obeys base.html var(--nav-w) perfectly) */
+#canvas-container {
+  position: absolute;
+  top: 0;
+  left: var(--nav-w);
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  z-index: 1;
+  transition: left .35s var(--ease-spring); /* Syncs with sidebar */
+  background: transparent;
+}
+#canvas-container canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* 2. Floating Bento Cards (Reusing base.html logic) */
+.bento-card-floating {
+  background: var(--surface);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  color: var(--text-primary);
+}
+
+/* 3. Compact & Modern Filter Toolbar */
+#filters {
+  position: fixed;
+  top: 20px;
+  left: calc(var(--nav-w) + 20px);
+  z-index: 120;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: calc(100vw - var(--nav-w) - 40px);
+  transition: left .35s var(--ease-spring);
+}
+
+.filters-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+#filtersToggle {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+  border-radius: 6px;
+  margin-left: auto;
+  transition: all .2s;
+}
+#filtersToggle:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); }
+[data-theme="dark"] #filtersToggle:hover { background: rgba(255,255,255,0.1); }
+#filters.filters-collapsed #filtersToggle { transform: rotate(-90deg); }
+#filters.filters-collapsed #filtersBody { display: none; }
+
+#filtersBody {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.v-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--surface-border);
+}
+
+/* Compact Forms & Buttons */
+.modern-select, .modern-input {
+  appearance: none;
+  background: rgba(0,0,0,0.03);
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: all .2s;
+  cursor: pointer;
+}
+[data-theme="dark"] .modern-select, [data-theme="dark"] .modern-input {
+  background: rgba(255,255,255,0.05);
+}
+.modern-select:hover, .modern-input:hover { background: rgba(0,0,0,0.06); }
+.modern-select:focus, .modern-input:focus {
+  outline: none;
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 2px var(--brand-glow);
+}
+
+.btn-tool, .btn-tool-accent, .btn-tool-success {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all .2s;
+}
+.btn-tool:hover { background: rgba(0,0,0,0.04); }
+[data-theme="dark"] .btn-tool:hover { background: rgba(255,255,255,0.08); }
+
+.btn-tool.btn-danger { color: #dc2626; border-color: rgba(220, 38, 38, 0.3); background: rgba(220, 38, 38, 0.05); }
+.btn-tool.btn-danger:hover { background: rgba(220, 38, 38, 0.1); }
+
+.btn-tool-accent { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3); color: var(--brand-accent); }
+.btn-tool-accent:hover { background: rgba(59,130,246,0.15); }
+
+.btn-tool-success { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: #059669; }
+[data-theme="dark"] .btn-tool-success { color: #34d399; }
+
+.btn-icon { background: transparent; border: none; padding: 4px; border-radius: 6px; color: var(--text-secondary); cursor: pointer; display:flex; align-items:center; }
+.btn-icon:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); }
+
+/* Compact Toggles */
+.toggle-group { display: flex; gap: 10px; }
+.compact-toggle {
+  display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--text-primary); cursor: pointer;
+}
+.compact-toggle input { display: none; }
+.compact-toggle .t-box {
+  width: 14px; height: 14px; border: 1px solid var(--surface-border); border-radius: 4px; background: rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: center;
+}
+[data-theme="dark"] .compact-toggle .t-box { background: rgba(255,255,255,0.05); }
+.compact-toggle input:checked + .t-box { background: var(--brand-accent); border-color: var(--brand-accent); }
+.compact-toggle input:checked + .t-box::after { content: ''; width: 6px; height: 6px; background: white; border-radius: 2px; }
+
+/* Search Wrap */
+.search-wrap { display: flex; align-items: center; gap: 6px; }
+.search-input-box {
+  position: relative; display: flex; align-items: center;
+}
+.search-input-box i { position: absolute; left: 8px; color: var(--text-muted); }
+.search-input-box input {
+  appearance: none; background: rgba(0,0,0,0.03); border: 1px solid var(--surface-border); border-radius: 6px;
+  padding: 6px 10px 6px 26px; font-size: 11.5px; color: var(--text-primary); width: 160px; transition: all .2s;
+}
+[data-theme="dark"] .search-input-box input { background: rgba(255,255,255,0.05); }
+.search-input-box input:focus { outline: none; border-color: var(--brand-accent); width: 200px; background: var(--surface); }
+
+/* 4. Tooltip (Fixed to prevent off-screen clipping) */
+#tooltip {
+  position: absolute;
+  display: none;
+  padding: 12px;
+  background: var(--surface);
+  color: var(--text-primary);
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  max-width: 300px; /* Constrained to stop horizontal clipping */
+  width: max-content;
+  max-height: 350px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 10000;
+  font-size: 11.5px;
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(16px);
+  pointer-events: none; /* Crucial: stops flickering when mouse hovers */
+  word-break: break-word;
+  white-space: normal;
+}
+#tooltip h4 { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+#tooltip table { width: 100%; border-collapse: collapse; }
+#tooltip td, #tooltip th { padding: 4px 6px; border-bottom: 1px solid var(--surface-border); text-align: left; }
+#tooltip th { color: var(--text-secondary); font-size: 10px; text-transform: uppercase; }
+
+/* 5. Right Side Panels (Details, Mixed Lot) */
+.side-panel {
+  position: fixed; right: 20px; top: 90px; bottom: 30px;
+  width: min(600px, calc(100vw - var(--nav-w) - 40px));
+  z-index: 9996; display: none; overflow-y: auto; padding: 16px;
+}
+.panel-hdr-sticky {
+  position: sticky; top: -16px; background: var(--surface); z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--surface-border);
+}
+.panel-hdr-sticky h3 { margin: 0; font-size: 14px; font-weight: 700; }
+.actions { display: flex; gap: 8px; align-items: center; }
+.count-badge { background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+[data-theme="dark"] .count-badge { background: rgba(255,255,255,0.1); }
+
+/* Tables inside panels */
+.side-panel table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.side-panel th, .side-panel td { padding: 6px 8px; border-bottom: 1px solid var(--surface-border); text-align: left; }
+.side-panel th { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; background: rgba(0,0,0,0.02); }
+[data-theme="dark"] .side-panel th { background: rgba(255,255,255,0.02); }
+
+/* 6. Lower Left Tools */
+#tools-card { position: fixed; left: calc(var(--nav-w) + 20px); bottom: 46px; z-index: 300; padding: 10px; min-width: 200px; transition: left .35s var(--ease-spring); }
+.panel-toggle { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; cursor: pointer; }
+.panel-toggle small { font-weight: 500; color: var(--text-muted); font-size: 10px; }
+.legend-content { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.timeline-row { display: flex; align-items: center; gap: 8px; }
+
+/* 7. Dispatch Drawer & FAB */
+.fab-btn {
+  position: fixed; right: 20px; top: 90px; z-index: 9999;
+  background: var(--brand-accent); color: white; border: none; border-radius: 99px;
+  padding: 10px 16px; font-weight: 700; font-size: 13px; font-family: inherit;
+  cursor: pointer; display: flex; gap: 8px; align-items: center; box-shadow: 0 4px 12px var(--brand-glow);
+  transition: transform .2s, box-shadow .2s;
+}
+.fab-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px var(--brand-glow); }
+
+#dispatchDrawer {
+  position: fixed; top: 0; right: -480px; width: 480px; height: 100vh;
+  background: var(--page-bg); z-index: 10000;
+  transition: right .3s var(--ease-spring);
+  display: flex; flex-direction: column; border-left: 1px solid var(--surface-border);
+}
+#dispatchDrawer.open { right: 0; }
+.drawer-hdr { padding: 16px; background: var(--brand-blue); color: white; display: flex; justify-content: space-between; align-items: center; }
+.drawer-hdr h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.drawer-content { padding: 16px; overflow-y: auto; flex: 1; }
+#dispatchBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9999; display: none; backdrop-filter: blur(2px); }
+#dispatchBackdrop.open { display: block; }
+body.dispatch-open .fab-btn { display: none; }
+
+/* AI Box */
+.ai-box { background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.2); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 12px; line-height: 1.5; }
+.ai-hdr { font-weight: 700; margin-bottom: 6px; color: var(--brand-accent); }
+
+/* Overlays / Misc */
+#ui-overlay { position: fixed; right: 20px; bottom: 46px; z-index: 150; pointer-events: none; }
+.cube-wrap { padding: 4px; pointer-events: auto; }
+.lbl {
+  padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; color: var(--text-primary);
+  background: var(--surface); border: 1px solid var(--surface-border); cursor: pointer; font-family: inherit;
+}
+.__bin_clickable { cursor: pointer; }
+.labels-hidden [data-role="label"] { display: none !important; }

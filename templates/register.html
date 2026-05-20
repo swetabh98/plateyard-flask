@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Register • Plate Mill Yard Management</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --jindal-aqua: #1abc9c;
+    --jindal-aqua-hover: #16a085;
+    --bg-dark: #020617;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; 
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg-dark);
+    color: #f8fafc;
+    overflow: hidden;
+  }
+  
+  /* --- NEW: Pure CSS Yard Management 3D Grid Effect --- */
+  .css-yard-bg {
+    position: fixed; 
+    inset: 0; 
+    z-index: -2;
+    perspective: 800px;
+    background: var(--bg-dark);
+  }
+  
+  /* 3D Scrolling Floor Grid (Represents Yard Bins) */
+  .grid-layer {
+    position: absolute;
+    width: 200vw; 
+    height: 200vh;
+    left: -50vw; 
+    top: -20vh;
+    background-image: 
+      linear-gradient(rgba(26, 188, 156, 0.15) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(26, 188, 156, 0.15) 2px, transparent 2px);
+    background-size: 80px 80px;
+    transform-origin: top center;
+    transform: rotateX(70deg) translateY(0);
+    animation: gridScroll 8s linear infinite;
+  }
+  
+  @keyframes gridScroll {
+    0% { transform: rotateX(70deg) translateY(0); }
+    100% { transform: rotateX(70deg) translateY(80px); }
+  }
+
+  /* Fade out edges so the grid disappears smoothly */
+  .bg-vignette {
+    position: absolute; 
+    inset: 0;
+    background: radial-gradient(circle at center, transparent 20%, var(--bg-dark) 80%),
+                linear-gradient(to bottom, var(--bg-dark) 0%, transparent 40%, var(--bg-dark) 100%);
+    z-index: -1;
+  }
+
+  /* Moving 'Plates' over the yard */
+  .plate {
+    position: absolute;
+    background: var(--jindal-aqua);
+    box-shadow: 0 0 20px rgba(26, 188, 156, 0.6);
+    border-radius: 2px;
+    opacity: 0.4;
+    z-index: -1;
+  }
+  .p1 { width: 50px; height: 90px; top: 25%; left: -10%; animation: slideRight 22s linear infinite; }
+  .p2 { width: 120px; height: 40px; top: 65%; right: -10%; animation: slideLeft 28s linear infinite 5s; }
+  .p3 { width: 70px; height: 70px; top: 80%; left: -10%; animation: slideRight 18s linear infinite 12s; }
+  .p4 { width: 60px; height: 110px; top: 15%; right: -10%; animation: slideLeft 25s linear infinite 2s; }
+
+  @keyframes slideRight { 0% { transform: translateX(0vw); } 100% { transform: translateX(120vw); } }
+  @keyframes slideLeft { 0% { transform: translateX(0vw); } 100% { transform: translateX(-120vw); } }
+  /* ---------------------------------------------------- */
+  
+  .overlay {
+    position: fixed; 
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4); 
+    z-index: 0;
+  }
+  
+  .wrap {
+    position: relative; 
+    z-index: 1;
+    min-height: 100vh; 
+    display: grid; 
+    place-items: center; 
+    padding: 24px;
+  }
+  
+  /* Modern Glassmorphism Card */
+  .card {
+    width: min(540px, 100%);
+    background: rgba(20, 30, 50, 0.55);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+  }
+  
+  .brand {
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+    padding: 32px 32px 16px;
+  }
+  .brand img { 
+    height: 36px; 
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); 
+  }
+  .brand h1 { 
+    margin: 0; 
+    font-size: 20px; 
+    font-weight: 800; 
+    letter-spacing: 0.5px; 
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+  }
+  
+  .body { padding: 0 32px 36px; }
+  h2 { 
+    margin: 0 0 28px; 
+    color: #cbd5e1; 
+    font-size: 15px; 
+    font-weight: 500; 
+    letter-spacing: 0.3px; 
+  }
+  
+  form { 
+    display: grid; 
+    gap: 20px; 
+    grid-template-columns: 1fr 1fr; 
+  }
+  .span-2 { grid-column: 1 / -1; }
+  
+  label { 
+    font-weight: 600; 
+    color: #e2e8f0; 
+    font-size: 13px; 
+    display: grid; 
+    gap: 8px; 
+  }
+  
+  input {
+    width: 100%; 
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px; 
+    font-size: 14px; 
+    color: #fff;
+    transition: all 0.2s ease;
+  }
+  input::placeholder { color: rgba(255, 255, 255, 0.4); }
+  input:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--jindal-aqua);
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(26, 188, 156, 0.25);
+  }
+  
+  .actions { 
+    display: flex; 
+    gap: 16px; 
+    align-items: center; 
+    justify-content: space-between; 
+    margin-top: 12px; 
+  }
+  
+  .btn {
+    appearance: none; 
+    border: none; 
+    border-radius: 12px; 
+    padding: 14px 28px; 
+    font-weight: 700; 
+    font-size: 14px;
+    cursor: pointer; 
+    transition: all 0.2s ease;
+  }
+  
+  .btn-primary {
+    background: var(--jindal-aqua); 
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(26, 188, 156, 0.3);
+  }
+  .btn-primary:hover {
+    background: var(--jindal-aqua-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(26, 188, 156, 0.4);
+  }
+  .btn-primary:active { transform: translateY(1px); }
+  
+  .meta { font-size: 13.5px; color: #cbd5e1; }
+  .link { 
+    color: var(--jindal-aqua); 
+    text-decoration: none; 
+    font-weight: 700; 
+    transition: color 0.2s ease; 
+  }
+  .link:hover { color: #5eead4; }
+  
+  .alert { 
+    margin-bottom: 24px; 
+    padding: 12px 16px; 
+    border-radius: 12px; 
+    font-size: 13.5px; 
+    font-weight: 500; 
+    grid-column: 1 / -1;
+  }
+  .alert.error { 
+    background: rgba(225, 29, 72, 0.15); 
+    color: #fda4af; 
+    border: 1px solid rgba(225, 29, 72, 0.3); 
+  }
+  .alert.success { 
+    background: rgba(20, 83, 45, 0.15); 
+    color: #86efac; 
+    border: 1px solid rgba(20, 83, 45, 0.3); 
+  }
+</style>
+</head>
+<body>
+
+<div class="css-yard-bg">
+  <div class="grid-layer"></div>
+  <div class="bg-vignette"></div>
+  <div class="plate p1"></div>
+  <div class="plate p2"></div>
+  <div class="plate p3"></div>
+  <div class="plate p4"></div>
+</div>
+
+<div class="overlay"></div>
+<div class="wrap">
+  <div class="card">
+    <div class="brand">
+      <img src="{{ url_for('static', filename='jindal-logo.png') }}" alt="Jindal">
+      <h1>Plate Mill Yard Management</h1>
+    </div>
+    <div class="body">
+      <h2>Create your account</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat,msg in messages %}
+          <div class="alert {{cat}}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      <form method="post" action="{{ url_for('register_post') }}">
+        <label class="span-2">Full Name
+          <input type="text" name="name" required>
+        </label>
+        <label class="span-2">Email Address
+          <input type="email" name="email" autocomplete="username" required>
+        </label>
+        <label>Password
+          <input type="password" name="password" autocomplete="new-password" required>
+        </label>
+        <label>Confirm Password
+          <input type="password" name="confirm" autocomplete="new-password" required>
+        </label>
+
+        <div class="actions span-2">
+          <button class="btn btn-primary" type="submit">Create account</button>
+          <div class="meta">Already have an account? <a class="link" href="{{ url_for('login') }}">Sign in</a></div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

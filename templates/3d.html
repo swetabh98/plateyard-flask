@@ -1,0 +1,2613 @@
+<!-- ===========================================
+✅ DROP-IN REPLACEMENT: yard_3d_view.html
+Adds:
+1) Auto-flag MIXED bins in 3D: ORANGE ring + ⚠ icon over bin label
+2) Alerts when a bin *turns* mixed (toast + browser notification)
+⚠ IMPORTANT: No existing functions removed. Everything else preserved.
+=========================================== -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>EF & AC Bay Yard 3D View</title>
+
+  <style>
+    :root{
+      --jindal-navy:#0f2a43; --jindal-navy-2:#163552; --page-bg:#f5f7fb; --rail-w:180px; --shadow:0 10px 30px rgba(15,42,67,.10);
+      --details-hdr-h: 44px;
+      --cust-hdr-h: 48px;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; overflow:hidden; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--page-bg); color:#0f172a; }
+
+    /* Left rail */
+    nav{ position:fixed; top:0; left:0; width:var(--rail-w); height:100vh; background:linear-gradient(180deg,var(--jindal-navy),var(--jindal-navy-2)); color:#fff; z-index:100; box-shadow:var(--shadow); display:flex; flex-direction:column; }
+    nav .brand{ height:56px; display:flex; align-items:center; gap:10px; padding:0 12px; border-bottom:1px solid rgba(255,255,255,.12); font-weight:700; }
+    nav .brand img{height:22px}
+    nav a{ display:block; color:#fff; padding:10px 14px; text-decoration:none; border-radius:10px; margin:6px 8px; }
+    nav a:hover{ background:rgba(255,255,255,.10) }
+    nav a.active{ background:rgba(26,188,156,.18); border:1px solid rgba(26,188,156,.45); box-shadow:0 0 0 3px rgba(26,188,156,.12) inset; }
+    nav form{margin:8px}
+    nav form button{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.08); color:#fff; cursor:pointer }
+
+    #canvas-container{ position:absolute; top:0; left:var(--rail-w); right:0; bottom:0; overflow:hidden; }
+    #canvas-container canvas{ position:absolute; inset:0; z-index:1; }
+
+    /* Excel-style tooltip */
+    #tooltip{
+      position:absolute; display:none; padding:10px 12px; background:#ffffff; color:#0f172a;
+      border-radius:10px; max-width:680px; max-height:420px; overflow:auto;
+      border:1px solid #e5e7eb; z-index:101; font-size:13px; line-height:1.45; box-shadow:var(--shadow);
+    }
+    #tooltip h4{ margin:0 0 6px; color:#0f2a43 }
+    #tooltip .meta{ margin-bottom:6px; color:#64748b }
+    #tooltip .sheet{ border:1px solid #e5e7eb; border-radius:8px; overflow:hidden }
+    #tooltip table{ width:100%; border-collapse:collapse; font-size:12px }
+    #tooltip thead th{ background:#f8fafc; text-align:left; padding:6px 8px; border-bottom:1px solid #e5e7eb; white-space:nowrap }
+    #tooltip tbody td{ padding:6px 8px; border-bottom:1px solid #f1f5f9; white-space:nowrap; text-overflow:ellipsis; overflow:hidden }
+
+    /* Label chips */
+    .lbl{ padding:2px 6px; border-radius:6px; font-size:12px; font-weight:700; line-height:1.2; color:#0b1220;
+      background:rgba(255,255,255,.98); border:1px solid rgba(15,42,67,.22); white-space:nowrap; user-select:none; pointer-events:auto; cursor:pointer; }
+    .labels-hidden [data-role="label"]{ display:none !important; }
+
+    /* ✅ MIXED lot warning chip (orange) */
+    .mix-warn{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:2px 8px; border-radius:999px; font-size:12px; font-weight:900;
+      color:#7c2d12; background:rgba(251,146,60,.18);
+      border:1px solid rgba(251,146,60,.55);
+      box-shadow:0 8px 18px rgba(15,23,42,.06);
+      user-select:none;
+      pointer-events:auto;
+      cursor:pointer;
+    }
+    .mix-warn .ico{ font-size:13px; }
+
+    /* ✅ TOAST for mixed alerts */
+    #mix-toast{
+      position: fixed;
+      left: calc(var(--rail-w) + 22px);
+      bottom: 18px;
+      z-index: 20000;
+      display:none;
+      background: #fff;
+      border: 1px solid rgba(15,42,67,.18);
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(15,42,67,.18);
+      padding: 12px 14px;
+      max-width: 520px;
+    }
+    #mix-toast .trow{ display:flex; gap:10px; align-items:flex-start; }
+    #mix-toast .badge{
+      background: rgba(251,146,60,.16);
+      border: 1px solid rgba(251,146,60,.55);
+      color: #7c2d12;
+      border-radius: 10px;
+      padding: 6px 8px;
+      font-weight: 900;
+      line-height: 1;
+      white-space:nowrap;
+    }
+    #mix-toast .ttl{ font-weight: 900; color:#0f2a43; margin-bottom:2px; }
+    #mix-toast .msg{ color:#475569; font-size: 12px; line-height:1.35; }
+    #mix-toast .actions{ display:flex; gap:8px; margin-top:10px; }
+    #mix-toast button{
+      border:1px solid #cbd5e1;
+      background:#fff;
+      border-radius:10px;
+      padding:7px 10px;
+      cursor:pointer;
+      font-weight:800;
+      font-size:12px;
+      color:#0f2a43;
+    }
+    #mix-toast button.primary{
+      border-color: rgba(251,146,60,.7);
+      background: rgba(251,146,60,.18);
+      color:#7c2d12;
+    }
+
+    /* TOP BAR */
+    #filters{
+      position: fixed; left: calc(var(--rail-w) + 20px); top: 12px; z-index: 120;
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      background:linear-gradient(90deg,var(--jindal-navy) 0%, var(--jindal-navy-2) 100%);
+      color:#fff; border:1px solid rgba(255,255,255,.18);
+      border-radius:12px; padding:10px 12px; box-shadow:0 6px 18px rgba(15,42,67,.22);
+      backdrop-filter: blur(3px);
+    }
+    #filters select option{ color:#0f172a; background:#fff; }
+    #filters label{ font:700 12px/1 system-ui; color:#fff }
+    #filters select, #filters input[type="date"], .search-wrap input{
+      appearance:none; border:1px solid rgba(255,255,255,.35);
+      border-radius:8px; padding:6px 8px; background:rgba(255,255,255,.10);
+      color:#fff; font:600 13px/1 system-ui;
+    }
+    #filters select:focus, #filters input[type="date"]:focus, .search-wrap input:focus{
+      outline:2px solid rgba(26,188,156,.55); outline-offset:1px;
+    }
+    .toggle-labels{ display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.35); border-radius:999px; padding:6px 10px; margin-left:10px; color:#fff; font-weight:600; font-size:13px }
+
+    .search-wrap button, .mini-btn{
+      border:1px solid rgba(255,255,255,.35);
+      border-radius:8px; padding:6px 10px; cursor:pointer;
+      background:#1abc9c; color:#0b1220; font:700 12px system-ui;
+    }
+    .search-wrap small{ color:rgba(255,255,255,.85); font:600 11px system-ui; margin-left:6px }
+
+    /* UI overlay (only NavCube kept) */
+    #ui-overlay{ position: fixed; right: 14px; bottom: 14px; z-index: 150; display:flex; gap:10px; align-items:flex-end; pointer-events:none }
+    .ui-card{ pointer-events:auto; background:rgba(255,255,255,.95); border:1px solid rgba(15,42,67,.15); border-radius:10px; box-shadow:var(--shadow); padding:8px; }
+    .ui-btn{ appearance:none; border:1px solid #cfd8e3; background:#fff; border-radius:8px; padding:6px 10px; font:600 13px/1 system-ui; cursor:pointer }
+    .ui-btn:hover{ background:#f1f5f9 }
+
+    /* NavCube */
+    #navcube{ width:110px; height:110px; display:block; border-radius:12px; background:rgba(255,255,255,.95); border:1px solid rgba(15,42,67,.15) }
+
+    /* Small tools */
+    #tools-card{
+      position:fixed; left: calc(var(--rail-w) + 20px); bottom: 16px; z-index:300;
+      background:rgba(255,255,255,.98); border:1px solid rgba(15,42,67,.15);
+      border-radius:12px; padding:10px; box-shadow:var(--shadow)
+    }
+
+    /* RIGHT details panel */
+    #search-details{
+      position:fixed;
+      right:16px;
+      top:140px;
+      bottom:16px;
+      width:min(640px, calc(100vw - var(--rail-w) - 32px));
+      overflow:auto;
+      overflow-x:hidden;
+      display:none;
+      z-index:9996;
+      background:rgba(255,255,255,.98);
+      border:1px solid rgba(15,42,67,.15);
+      border-radius:12px;
+      box-shadow:var(--shadow);
+      padding:12px;
+      padding-bottom:18px;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-gutter: stable both-edges;
+      --details-hdr-h: 44px;
+      --cust-hdr-h: 48px;
+      --details-gap: 12px;
+    }
+    #search-details h3{
+      margin:0 0 8px;
+      font:800 14px system-ui;
+      color:#0f2a43;
+      border-bottom:1px solid #e5e7eb;
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      position:sticky; top:0; background:rgba(255,255,255,.98); z-index:80;
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    #search-details-body{ margin-top: var(--details-gap); }
+    #search-details .muted{ color:#64748b }
+    #search-details .pill{ display:inline-block; padding:2px 6px; border-radius:999px; font:800 11px system-ui; background:#eef2f7; color:#0f2a43; margin-left:6px }
+
+    #detailsCloseBtn, #detailsExportBtn{
+      border:1px solid #cbd5e1;
+      background:#fff;
+      border-radius:10px;
+      padding:6px 10px;
+      cursor:pointer;
+      font-weight:800;
+      font-size:12px;
+      color:#0f2a43;
+    }
+    #detailsCloseBtn:hover{ background:#f1f5f9; }
+    #detailsExportBtn{
+      border-color: rgba(16,185,129,.55);
+      background: rgba(16,185,129,.12);
+      color:#065f46;
+    }
+    #detailsExportBtn:hover{ background: rgba(16,185,129,.20); }
+
+    .cust-tile{
+      border:1px solid #e5e7eb; border-radius:14px; overflow:hidden; margin-bottom:10px;
+      box-shadow:0 8px 18px rgba(15,23,42,.05);
+      background:#fff;
+      --cust-hdr-h: 48px;
+    }
+    .cust-hdr{
+      padding:10px 12px; background:#f8fafc; border-bottom:1px solid #e5e7eb;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      position:sticky;
+      top: calc(var(--details-hdr-h) + var(--details-gap));
+      z-index:70;
+    }
+    .cust-hdr strong{ font-size:13px; color:#0f2a43; }
+    .cust-hdr .meta{ font-size:12px; color:#64748b; }
+
+    .cust-colhdr{
+      position: sticky;
+      top: calc(var(--details-hdr-h) + var(--details-gap) + var(--cust-hdr-h));
+      z-index:65;
+      background:#f8fafc;
+      border-bottom:1px solid #e2e8f0;
+      box-shadow: 0 1px 0 rgba(226,232,240,1);
+    }
+    .cust-colhdr-scroll{ overflow:hidden; scrollbar-gutter: stable both-edges; }
+    .cust-colhdr-table{
+      width:100%;
+      min-width:980px;
+      border-collapse:collapse;
+      table-layout:fixed;
+      font-size:12px;
+    }
+    .cust-colhdr-table th{
+      text-align:left;
+      padding:7px 8px;
+      white-space:nowrap;
+      font-weight:900;
+      color:#0f172a;
+      font-size:11px;
+      border-bottom:1px solid #e2e8f0;
+      background:#f8fafc;
+    }
+
+    .cust-body{ padding:10px 12px; }
+    .cust-table-wrap{
+      width:100%;
+      overflow-x:auto;
+      overflow-y:auto;
+      max-height: clamp(180px, 34vh, 420px);
+      border:1px solid #eef2f7;
+      border-radius:12px;
+      background:#fff;
+      -webkit-overflow-scrolling: touch;
+      position:relative;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable both-edges;
+      padding-bottom: 18px;
+    }
+    .cust-table{
+      width:100%;
+      min-width:980px;
+      border-collapse:collapse;
+      table-layout:fixed;
+      font-size:12px;
+    }
+    .cust-table td{
+      text-align:left;
+      padding:7px 8px;
+      border-bottom:1px solid #eef2f7;
+      vertical-align:top;
+      white-space:nowrap;
+    }
+    .cust-table thead{ display:none; }
+
+    .col-id{ width:140px; }
+    .col-bin{ width:90px; }
+    .col-type{ width:90px; }
+    .col-status{ width:130px; }
+    .col-fi{ width:130px; }
+    .col-sbu{ width:120px; }
+    .col-top{ width:90px; }
+    .col-bottom{ width:110px; }
+    .col-dim{ width:110px; }
+    .col-pcs{ width:70px; }
+    .col-wt{ width:90px; }
+
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .legend-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+    .legend-item{ display:flex; gap:6px; align-items:center; font:800 12px system-ui; color:#0f172a; }
+    .swatch{ width:14px; height:14px; border-radius:4px; border:1px solid rgba(15,42,67,.25); }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="brand">
+      <img src="/static/jindal-logo.png" alt="Jindal Steel logo" />
+      <span>Navigator</span>
+    </div>
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.path.startswith('/dashboard') else '' }}">Dashboard</a>
+    <a href="/">2D Layout</a>
+    <a class="active" href="/3d">3D Layout</a>
+    <a href="/allocator">Bin Allocator</a>
+    <a href="/transactions">Transaction History</a>
+    <form action="{{ url_for('logout') }}" method="post"><button>Logout {{ session.get('user_name') or '' }}</button></form>
+  </nav>
+
+  <div id="canvas-container"></div>
+  <div id="tooltip" role="tooltip" aria-hidden="true"></div>
+
+  <!-- ✅ Toast for mixed alerts -->
+  <div id="mix-toast" aria-live="polite">
+    <div class="trow">
+      <div class="badge">⚠ Mixed</div>
+      <div style="flex:1;">
+        <div class="ttl" id="mixToastTitle">Mixed Lot Detected</div>
+        <div class="msg" id="mixToastMsg">—</div>
+        <div class="actions">
+          <button class="primary" id="mixToastViewBtn">View bins</button>
+          <button id="mixToastCloseBtn">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="filters">
+
+    <label>Top of Stack
+      <select id="topStackFilter">
+        <option value="all">All</option>
+        <option value="fg_fi">FG with FI</option>
+        <option value="fg_fi2">FG with FI(2)</option>
+      </select>
+    </label>
+
+    <label>Status
+      <select id="statusFilter">
+        <option value="all">All</option><option value="finished good">Finished Good (FG)</option>
+        <option value="wip">Work In Progress (WIP)</option>
+        <option value="gfa">Good for Availability (GFA)</option>
+        <option value="psfs">Prime Stock For Sale (PSFS)</option>
+        <option value="ready for dispatch">Ready for Dispatch</option>
+        <option value="rejected">Rejected</option><option value="others">Others</option>
+      </select>
+    </label>
+
+    <label>Date
+      <select id="dateFilter">
+        <option value="all">All</option><option value="today">Today</option><option value="week">This Week</option>
+        <option value="month">This Month</option><option value="year">This Year</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </label>
+
+    <div id="customRange" style="display:none; gap:6px; align-items:center;">
+      <span>From</span><input type="date" id="startDate">
+      <span>To</span><input type="date" id="endDate">
+    </div>
+
+    <label>FI_Rel_text
+      <select id="fiRelFilter">
+        <option value="all">All</option>
+      </select>
+    </label>
+
+    <label>SBU_RelStatus
+      <select id="sbuRelFilter">
+        <option value="all">All</option>
+      </select>
+    </label>
+
+    <label>Customer
+      <select id="customerFilter">
+        <option value="all">All</option>
+      </select>
+    </label>
+
+    <label>CustomerCity
+      <select id="customerCityFilter">
+        <option value="all">All</option>
+      </select>
+    </label>
+
+    <label class="toggle-labels"><input type="checkbox" id="showLabels" checked /><span>Show labels</span></label>
+
+    <div class="search-wrap" title="Search Plate/Coil IDs (comma or space separated)">
+      <input id="searchIds" placeholder="Search IDs (e.g. 001 002 1203)" />
+      <button id="searchBtn">Find</button>
+      <button id="applyBtn" class="mini-btn">Apply</button>
+      <button id="resetBtn" class="mini-btn">Reset</button>
+      <small>Tip: type numbers only (001 → matches PL-001)</small>
+    </div>
+  </div>
+
+  <div id="tools-card">
+    <div class="grp">
+      <label><input type="checkbox" id="statusColorsToggle" checked> Status Colors</label>
+    </div>
+
+    <div class="grp">
+      <label for="timeline">Timeline</label>
+      <input type="date" id="timeline">
+      <button id="timelineClear" class="ui-btn" style="padding:4px 8px">Clear</button>
+    </div>
+
+    <div class="legend-row" aria-label="Legend">
+      <div class="legend-item"><span class="swatch" style="background:#f1c40f;"></span><span>WIP</span></div>
+      <div class="legend-item"><span class="swatch" style="background:#1f85de;"></span><span>FG</span></div>
+    </div>
+  </div>
+
+  <div id="search-details" aria-live="polite">
+    <h3>
+      <span>Details (Customer-wise)</span>
+      <span style="display:flex;align-items:center;gap:10px;">
+        <span class="muted" id="detailsCount" style="font-weight:800;"></span>
+        <button id="detailsExportBtn" type="button" title="Export this panel to Excel">Export in Excel</button>
+        <button id="detailsCloseBtn" type="button" title="Close">Close</button>
+      </span>
+    </h3>
+    <div id="search-details-body"></div>
+  </div>
+
+  <script type="importmap">{
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.module.js",
+      "three/examples/jsm/controls/OrbitControls": "https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/controls/OrbitControls.js",
+      "three/examples/jsm/renderers/CSS2DRenderer": "https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/renderers/CSS2DRenderer.js"
+    }
+  }</script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+    import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer';
+
+    /* ---------- Server data ---------- */
+    const layout_raw    = {{ layout | tojson }};
+    const assigned_bins = {{ assigned_bins | tojson }};
+
+    /* ---------- Helpers / normalization ---------- */
+    const YARD_WIDTH=3600, YARD_HEIGHT=2000;
+    const BIN_FLOOR_THICKNESS=25, BIN_WALL_HEIGHT=560;
+    const BIN_SCALE=5, BIN_PADDING=0;
+
+    const AC_DEPTH_MULTIPLIER = 1;
+
+    function effectiveDims(z){
+      const w0 = Number(z.width)||0;
+      const h0 = Number(z.height)||0;
+      const isAC = /^AC/i.test(String(z.bin||''));
+      return { w: w0, h: isAC ? h0 * AC_DEPTH_MULTIPLIER : h0 };
+    }
+    function toCenterEff(z){
+      const { w, h } = effectiveDims(z);
+      return {
+        x: (z.x_pos + w/2) - (YARD_WIDTH/2),
+        z: (z.y_pos + h/2) - (YARD_HEIGHT/2)
+      };
+    }
+
+    const INNER_PAD = 40;
+    const PLATE_H    = 2;
+    const LIVE_SEARCH_DELAY = 300;
+
+    const normBin = (s) => String(s ?? '').toUpperCase().replace(/\s+/g,'').trim();
+
+    const assignedByUpper = {};
+    for (const k in assigned_bins) {
+      const key = normBin(k);
+      const list = Array.isArray(assigned_bins[k]) ? assigned_bins[k] : [];
+      assignedByUpper[key] = list.filter(it => normBin(it?.bin ?? it?.bin_code ?? it?.location) === key);
+    }
+
+    const zones  = Array.isArray(layout_raw?.zones)  ? layout_raw.zones  : [];
+    const labels = Array.isArray(layout_raw?.labels) ? layout_raw.labels : [];
+
+    /* ---------- Scene ---------- */
+    let scene,camera,renderer,controls,labelRenderer,raycaster,mouse,tooltipEl,pinned=null,currentHover=null;
+    const hoverables=[], itemMeshes=[];
+    const binCenters={}, binMeshes={}, highlightRings={};
+    const idToMeshes={};
+
+    // Orthographic top-down
+    let orthoCamera=null, orthoControls=null, isTopDown=false;
+    let perspCamera=null, perspControls=null;
+
+    /* Stacking helpers */
+    const stackRelations = {};
+    const plateStackIndex = {};
+    const plateStackTotal = {};
+    const coilLevel = {};
+    const coilMaxLevel = {};
+    const normId = (id)=>String(id||'').trim().toUpperCase();
+
+    window.__getStackPositionForItem = getStackPositionForItem;
+
+    /* Status color mapping */
+    const statusColor = (s)=>{
+      s = String(s||'').toLowerCase();
+      if(s.includes('finished')) return 0x2ecc71;
+      if(s.includes('wip')) return 0xf1c40f;
+      if(s.includes('good for availability')||s.includes('gfa')) return 0x00c2ff;
+      if(s.includes('psfs')||s.includes('prime stock')) return 0x8e44ad;
+      if(s.includes('ready for dispatch')||s==='rfd'||s.includes('dispatch')) return 0x16a085;
+      if(s.includes('reject')) return 0x6b7280;
+      return 0x1f85de;
+    };
+
+    const plateMat = ()=> new THREE.MeshLambertMaterial({ color:0x1f85de, transparent:true, opacity:0.95 });
+    const coilMat  = ()=> new THREE.MeshLambertMaterial({ color:0xf1c40f, transparent:false, opacity:1.0 });
+
+    /* UI refs */
+    const statusColorsToggle = document.getElementById('statusColorsToggle');
+    const timeline = document.getElementById('timeline');
+    const timelineClear = document.getElementById('timelineClear');
+    let timelineDate = null;
+
+    const fiSel   = document.getElementById('fiRelFilter');
+    const sbuSel  = document.getElementById('sbuRelFilter');
+    const citySel = document.getElementById('customerCityFilter');
+    const custSel = document.getElementById('customerFilter');
+    const topStackSel = document.getElementById('topStackFilter');
+
+    let __customerCityMap = {};
+
+    function isCoilItem(it){ return String(it?.type||'').toLowerCase().includes('coil'); }
+    function isPlateItem(it){ return !isCoilItem(it); }
+
+    let lastMouseX = 0, lastMouseY = 0;
+
+    /* ==========================================================
+      ✅ MIXED LOT DETECTION + FLAGGING + ALERTS
+    ========================================================== */
+
+    // state
+    const mixedState = {
+      current: new Map(), // bin -> {customers:Set, count:int}
+      notified: new Set(), // bins already notified as mixed
+      icons: new Map(), // bin -> CSS2DObject
+      rings: new Map(), // bin -> THREE.Mesh (orange ring)
+      lastToastBins: [],
+    };
+
+    const ORANGE_RING_COLOR = 0xFB923C; // tailwind orange-400-ish
+    const ORANGE_RING_OPACITY = 0.95;
+
+    function getCustomerNameFromItem(it){
+      return String(it?.customer ?? it?.Customer ?? it?.CUSTOMER ?? '').trim();
+    }
+
+    // Compute mixed bins from the *current assignedByUpper snapshot*
+    function computeMixedBinsFromSnapshot(){
+      const out = new Map();
+      for(const bin in assignedByUpper){
+        const items = assignedByUpper[bin] || [];
+        const custs = new Set();
+        for(const it of items){
+          const c = getCustomerNameFromItem(it);
+          if(c) custs.add(c);
+        }
+        if(custs.size > 1){
+          out.set(bin, { customers: custs, count: items.length });
+        }
+      }
+      return out;
+    }
+
+    // Create/Update orange ring + warning icon (CSS2D)
+    function ensureMixedVisuals(bin, meta){
+      const B = String(bin||'').toUpperCase();
+      const c = binCenters[B];
+      if(!c) return;
+
+      // ORANGE RING (separate from existing highlight rings)
+      if(!mixedState.rings.has(B)){
+        const outer = Math.min(c.w,c.h)*0.47;
+        const inner = outer*0.72;
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(inner, outer, 28),
+          new THREE.MeshBasicMaterial({
+            color: ORANGE_RING_COLOR,
+            transparent:true,
+            opacity: ORANGE_RING_OPACITY,
+            side: THREE.DoubleSide
+          })
+        );
+        ring.rotation.x = -Math.PI/2;
+        ring.position.set(c.x, (c.y||1)+2.4, c.z);
+        ring.renderOrder = 9998;
+        scene.add(ring);
+        mixedState.rings.set(B, ring);
+      }
+
+      // WARNING ICON
+      if(!mixedState.icons.has(B)){
+        const el = document.createElement('div');
+        el.className = 'mix-warn';
+        el.setAttribute('data-role','label');
+        el.dataset.bin = B;
+        el.title = `Mixed Lot in ${B} (click to view)`;
+        el.innerHTML = `<span class="ico">⚠</span><span>Mixed</span>`;
+        const obj = new CSS2DObject(el);
+        obj.position.set(c.x, BIN_WALL_HEIGHT + 46, c.z);
+        obj.renderOrder = 9999;
+        scene.add(obj);
+        mixedState.icons.set(B, obj);
+
+        // click opens your bin panel
+        el.addEventListener('click', (e)=>{
+          e.preventDefault(); e.stopPropagation();
+          if(window.__openBinDetail) window.__openBinDetail(B);
+        }, true);
+      }
+
+      // Update tooltip text with customer count
+      try{
+        const obj = mixedState.icons.get(B);
+        const el = obj?.element;
+        if(el && meta?.customers){
+          const list = Array.from(meta.customers).slice(0,4).join(', ');
+          const more = meta.customers.size > 4 ? ` +${meta.customers.size-4} more` : '';
+          el.title = `Mixed Lot in ${B}\nCustomers: ${list}${more}\nItems: ${meta.count ?? ''}\n(click to view)`;
+        }
+      }catch(_){}
+    }
+
+    function removeMixedVisuals(bin){
+      const B = String(bin||'').toUpperCase();
+      const ring = mixedState.rings.get(B);
+      if(ring){ try{ scene.remove(ring); }catch(_){} mixedState.rings.delete(B); }
+      const icon = mixedState.icons.get(B);
+      if(icon){ try{ scene.remove(icon); }catch(_){} mixedState.icons.delete(B); }
+    }
+
+    function applyMixedFlagsFromMap(mapMixed){
+      // add/update visuals for mixed
+      for(const [bin, meta] of mapMixed.entries()){
+        ensureMixedVisuals(bin, meta);
+      }
+      // remove visuals for bins no longer mixed
+      for(const bin of Array.from(mixedState.current.keys())){
+        if(!mapMixed.has(bin)){
+          removeMixedVisuals(bin);
+          mixedState.notified.delete(bin); // if it becomes mixed again later, notify again
+        }
+      }
+      mixedState.current = mapMixed;
+    }
+
+    // ✅ Alerts: toast + Notification when a bin becomes mixed (transition)
+    function maybeAlertNewMixedBins(newMixed){
+      const turnedMixed = [];
+      for(const [bin, meta] of newMixed.entries()){
+        if(!mixedState.current.has(bin)){
+          turnedMixed.push({ bin, meta });
+        }
+      }
+      if(!turnedMixed.length) return;
+
+      // show toast (grouped)
+      const bins = turnedMixed.map(x=>x.bin);
+      mixedState.lastToastBins = bins.slice();
+
+      const msg = turnedMixed.slice(0,5).map(x=>{
+        const custs = Array.from(x.meta.customers).slice(0,3).join(', ');
+        const more = x.meta.customers.size>3 ? ` +${x.meta.customers.size-3} more` : '';
+        return `${x.bin}: ${custs}${more}`;
+      }).join(' • ');
+
+      showMixedToast(
+        `Mixed lot detected (${bins.length} bin${bins.length===1?'':'s'})`,
+        msg || 'One or more bins now contain multiple customers.',
+        bins
+      );
+
+      // browser Notification (best-effort)
+      try{
+        if('Notification' in window){
+          if(Notification.permission === 'default'){
+            Notification.requestPermission().then(()=>{ /* no-op */ });
+          }
+          if(Notification.permission === 'granted'){
+            new Notification('Mixed lot detected', {
+              body: bins.join(', ')
+            });
+          }
+        }
+      }catch(_){}
+    }
+
+    function showMixedToast(title, message, bins){
+      const toast = document.getElementById('mix-toast');
+      const ttl = document.getElementById('mixToastTitle');
+      const msg = document.getElementById('mixToastMsg');
+      const viewBtn = document.getElementById('mixToastViewBtn');
+      const closeBtn = document.getElementById('mixToastCloseBtn');
+
+      if(ttl) ttl.textContent = title || 'Mixed Lot Detected';
+      if(msg) msg.textContent = message || '—';
+
+      if(viewBtn){
+        viewBtn.onclick = (e)=>{
+          e.preventDefault();
+          // Focus camera on bins + show a details window (customer-wise) with only mixed bins
+          try{
+            focusOnBins(Array.isArray(bins)?bins:[]);
+            showMixedBinsWindow(Array.isArray(bins)?bins:[]);
+          }catch(_){}
+          hideMixedToast();
+        };
+      }
+      if(closeBtn){
+        closeBtn.onclick = (e)=>{ e.preventDefault(); hideMixedToast(); };
+      }
+
+      if(toast){
+        toast.style.display='block';
+        clearTimeout(toast.__timer);
+        toast.__timer = setTimeout(()=>{ hideMixedToast(); }, 9000);
+      }
+    }
+
+    function hideMixedToast(){
+      const toast = document.getElementById('mix-toast');
+      if(toast) toast.style.display='none';
+    }
+
+    // ✅ “Window with all details”: reuse your existing right panel (customer-wise)
+    // We will show ONLY items in mixed bins, grouped by customer (same renderer)
+    function showMixedBinsWindow(bins){
+      const Bset = new Set((bins||[]).map(b=>String(b||'').toUpperCase()));
+      const list = [];
+      for(const bin of Bset){
+        const items = assignedByUpper[bin] || [];
+        for(const it of items){
+          list.push({
+            item_id: it.plate_id ?? it.item_id ?? it.id,
+            plate_id: it.plate_id,
+            type: it.type,
+            status: it.status,
+            bin: bin,
+            length: it.length,
+            width: it.width,
+            thickness: it.thickness,
+            pieces: it.pieces,
+            grade: it.grade,
+            customer: it.customer ?? it.Customer ?? it.CUSTOMER,
+            weight: it.weight,
+            FI_Rel_text: it.FI_Rel_text ?? it.fi_rel_text ?? '',
+            SBU_RelStatus: it.SBU_RelStatus ?? it.sbu_rel_status ?? '',
+            CustomerCity: it.CustomerCity ?? it.customer_city ?? '',
+            added_at: it.added_at,
+            created_at: it.created_at,
+            updated_at: it.updated_at,
+            date: it.date
+          });
+        }
+      }
+
+      // Mark bins too
+      for(const b of Bset){ try{ markMixedBin(b); }catch(_){} }
+
+      // Show in your existing panel renderer
+      showDetailsCustomerWise(list, [], 'Mixed Lots');
+      updateDetailsStickyVars();
+    }
+
+    // ORANGE marker ring overlay for mixed bins (kept separate from green highlightRings)
+    function markMixedBin(bin){
+      // (visuals are already ensured by ensureMixedVisuals)
+      const B = String(bin||'').toUpperCase();
+      const meta = mixedState.current.get(B) || { customers:new Set(), count: (assignedByUpper[B]||[]).length };
+      ensureMixedVisuals(B, meta);
+    }
+
+    // ✅ Polling to detect “turns mixed”
+    // NOTE: Without a server endpoint, we can only detect changes if you return updated bins.
+    // We attempt a best-effort poll to "/api/mixed_bins" (if you add it) OR "/api/yard_state" (if you already have it).
+    const MIX_POLL_MS = 15000;
+    let __mixPollTimer = null;
+
+    async function fetchMixedBinsFromServer(){
+      // Try known endpoints in order. If none exist, return null.
+      const tries = [
+        '/api/mixed_bins',        // ✅ recommended: returns {mixed: [{bin, customers:[...], count}]}
+        '/api/yard_state',        // optional: you may already have
+        '/api/assigned_bins'      // optional
+      ];
+      for(const url of tries){
+        try{
+          const res = await fetch(url, { credentials:'same-origin', headers:{'X-Requested-With':'fetch'} });
+          if(!res.ok) continue;
+          const data = await res.json().catch(()=>null);
+          if(!data) continue;
+
+          // Format A: { mixed: [{bin, customers:[...], count}] }
+          if(Array.isArray(data.mixed)){
+            const map = new Map();
+            for(const row of data.mixed){
+              const b = String(row.bin||'').toUpperCase();
+              const custs = new Set(Array.isArray(row.customers)?row.customers.filter(Boolean):[]);
+              if(custs.size>1) map.set(b, { customers:custs, count: Number(row.count)||0 });
+            }
+            return map;
+          }
+
+          // Format B: raw assigned_bins object (same shape as template)
+          if(data.assigned_bins || data.bins || data){
+            const rawBins = data.assigned_bins || data.bins || data;
+            if(rawBins && typeof rawBins === 'object'){
+              // rebuild a temporary assignedByUpper-like view
+              const temp = {};
+              for(const k in rawBins){
+                const key = normBin(k);
+                const list = Array.isArray(rawBins[k]) ? rawBins[k] : [];
+                temp[key] = list.filter(it => normBin(it?.bin ?? it?.bin_code ?? it?.location) === key);
+              }
+              const map = new Map();
+              for(const bin in temp){
+                const items = temp[bin] || [];
+                const custs = new Set();
+                for(const it of items){
+                  const c = getCustomerNameFromItem(it);
+                  if(c) custs.add(c);
+                }
+                if(custs.size>1) map.set(bin, { customers:custs, count: items.length });
+              }
+              return map;
+            }
+          }
+        }catch(_){ /* ignore */ }
+      }
+      return null;
+    }
+
+    async function pollMixedBins(){
+      // Server available? Use server. Else fall back to local snapshot (no transition detection).
+      const serverMap = await fetchMixedBinsFromServer();
+
+      if(serverMap){
+        // Detect transitions based on previous mixedState.current
+        const newMixed = serverMap;
+        maybeAlertNewMixedBins(newMixed);
+        applyMixedFlagsFromMap(newMixed);
+        return;
+      }
+
+      // Fallback: local snapshot only (no “turns mixed” detection from server changes)
+      const localMap = computeMixedBinsFromSnapshot();
+      // On first run, just apply visuals (no alert).
+      if(!mixedState.__bootstrapped){
+        mixedState.__bootstrapped = true;
+        applyMixedFlagsFromMap(localMap);
+        return;
+      }
+      // If assigned_bins isn’t changing client-side, this won’t fire anyway.
+      maybeAlertNewMixedBins(localMap);
+      applyMixedFlagsFromMap(localMap);
+    }
+
+    function startMixedPolling(){
+      if(__mixPollTimer) clearInterval(__mixPollTimer);
+      pollMixedBins(); // immediate
+      __mixPollTimer = setInterval(pollMixedBins, MIX_POLL_MS);
+    }
+
+    /* ---------- EXISTING CODE CONTINUES (UNCHANGED LOGIC) ---------- */
+    function makeFloorTextMesh(text, pxWidth=900, pxHeight=220) {
+      const c = document.createElement('canvas');
+      c.width = pxWidth; c.height = pxHeight;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0,0,c.width,c.height);
+      ctx.font = 'bold 160px system-ui, Segoe UI, Roboto, Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 18;
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.strokeText(text, c.width/2, c.height/2);
+      ctx.fillStyle = '#0f2a43';
+      ctx.fillText(text, c.width/2, c.height/2);
+      const tex = new THREE.CanvasTexture(c);
+      tex.anisotropy = 4;
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.9 });
+      const W = pxWidth  * 0.6;
+      const H = pxHeight * 0.6;
+      const geo = new THREE.PlaneGeometry(W, H);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI/2;
+      mesh.renderOrder = 2;
+      return mesh;
+    }
+
+    function _asStr(v){ return String(v ?? '').trim(); }
+    function _normKey(v){ return _asStr(v); }
+    function _uniqSorted(arr){
+      const s = new Set(arr.map(_normKey).filter(x => x !== ''));
+      return Array.from(s).sort((a,b)=>a.localeCompare(b));
+    }
+
+    function populateDropdowns(){
+      const allItems = [];
+      for(const b in assigned_bins){
+        const list = Array.isArray(assigned_bins[b]) ? assigned_bins[b] : [];
+        for(const it of list) allItems.push(it || {});
+      }
+
+      const fiVals   = _uniqSorted(allItems.map(it => it.FI_Rel_text ?? it.fi_rel_text ?? it.FI_REL_TEXT));
+      const sbuVals  = _uniqSorted(allItems.map(it => it.SBU_RelStatus ?? it.sbu_rel_status ?? it.SBU_RELSTATUS));
+      const cityVals = _uniqSorted(allItems.map(it => it.CustomerCity ?? it.customer_city ?? it.CUSTOMERCITY));
+      const custVals = _uniqSorted(allItems.map(it => it.customer ?? it.Customer ?? it.CUSTOMER));
+
+      __customerCityMap = {};
+      for(const it of allItems){
+        const cust = _asStr(it.customer ?? it.Customer ?? it.CUSTOMER);
+        const city = _asStr(it.CustomerCity ?? it.customer_city ?? it.CUSTOMERCITY);
+        if(!cust || !city) continue;
+        (__customerCityMap[cust] ||= new Set()).add(city);
+      }
+      for(const k of Object.keys(__customerCityMap)){
+        __customerCityMap[k] = Array.from(__customerCityMap[k]).sort((a,b)=>a.localeCompare(b));
+      }
+
+      const fill = (sel, vals)=>{
+        if(!sel) return;
+        while(sel.options.length > 1) sel.remove(1);
+        for(const v of vals){
+          const o=document.createElement('option');
+          o.value=v; o.textContent=v;
+          sel.appendChild(o);
+        }
+      };
+
+      fill(fiSel, fiVals);
+      fill(sbuSel, sbuVals);
+      fill(custSel, custVals);
+
+      function refreshCityOptions(){
+        if(!citySel) return;
+        const selectedCustomer = (custSel?.value || 'all');
+        let citiesFor = [];
+        if(selectedCustomer && selectedCustomer !== 'all'){
+          citiesFor = __customerCityMap[selectedCustomer] || [];
+        } else {
+          citiesFor = cityVals;
+        }
+        const current = citySel.value || 'all';
+        fill(citySel, citiesFor);
+        if(current !== 'all'){
+          const exists = Array.from(citySel.options).some(o => o.value === current);
+          citySel.value = exists ? current : 'all';
+        } else {
+          citySel.value = 'all';
+        }
+      }
+
+      refreshCityOptions();
+
+      if(custSel && !custSel.__linkedCityHandler){
+        custSel.__linkedCityHandler = true;
+        custSel.addEventListener('change', ()=>{
+          if(citySel) citySel.value = 'all';
+          refreshCityOptions();
+        });
+      }
+    }
+
+    function init(){
+      const container=document.getElementById('canvas-container'); tooltipEl=document.getElementById('tooltip');
+
+      scene=new THREE.Scene();
+      scene.background=new THREE.Color(0xe9eef5);
+
+      camera=new THREE.PerspectiveCamera(45,container.clientWidth/container.clientHeight,0.1,20000);
+
+      renderer=new THREE.WebGLRenderer({
+        antialias:false,
+        powerPreference:'low-power',
+        alpha:false,
+        stencil:false,
+        depth:true,
+        premultipliedAlpha:true
+      });
+
+      renderer.setPixelRatio(0.75);
+      renderer.setSize(container.clientWidth,container.clientHeight);
+      renderer.shadowMap.enabled=false;
+      renderer.localClippingEnabled = true;
+      if('outputColorSpace' in renderer) renderer.outputColorSpace=THREE.SRGBColorSpace; else renderer.outputEncoding=THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.NoToneMapping;
+      container.appendChild(renderer.domElement);
+
+      labelRenderer=new CSS2DRenderer(); labelRenderer.setSize(container.clientWidth,container.clientHeight);
+      labelRenderer.domElement.style.position='absolute'; labelRenderer.domElement.style.inset='0';
+      labelRenderer.domElement.style.pointerEvents='none'; labelRenderer.domElement.style.zIndex='2';
+      container.appendChild(labelRenderer.domElement);
+
+      controls=new OrbitControls(camera,renderer.domElement);
+      controls.enableDamping = true; controls.dampingFactor = 0.12;
+      controls.rotateSpeed   = 0.9;  controls.zoomSpeed       = 1.2; controls.panSpeed = 0.9;
+      controls.screenSpacePanning = true; controls.enablePan = true;
+      controls.minDistance   = 120; controls.maxDistance   = 22000; controls.maxPolarAngle = Math.PI*0.49;
+
+      controls.mouseButtons.LEFT   = THREE.MOUSE.ROTATE;
+      controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+      controls.mouseButtons.RIGHT  = THREE.MOUSE.PAN;
+      controls.touches.ONE = THREE.TOUCH.ROTATE;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+
+      scene.add(new THREE.HemisphereLight(0xffffff,0x88aaff,0.9));
+      const dir=new THREE.DirectionalLight(0xffffff,1.2); dir.position.set(1600,2000,1200);
+      scene.add(dir);
+      scene.add(new THREE.AmbientLight(0xffffff,0.45));
+
+      const ground=new THREE.Mesh(new THREE.PlaneGeometry(16000,16000), new THREE.MeshBasicMaterial({color:0xf2f6ff}));
+      ground.rotation.x=-Math.PI/2; scene.add(ground);
+
+      /* -------------------- Bins (NO WALLS) -------------------- */
+      zones.forEach(z => {
+        const { w: effW, h: effH } = effectiveDims(z);
+        const { x, z: zz } = toCenterEff(z);
+        const w_shell = Math.max(1, effW * BIN_SCALE - BIN_PADDING);
+        const d_shell = Math.max(1, effH * BIN_SCALE - BIN_PADDING);
+        z._effW = effW; z._effH = effH;
+
+        const floor = new THREE.Mesh(
+          new THREE.BoxGeometry(w_shell, BIN_FLOOR_THICKNESS, d_shell),
+          new THREE.MeshLambertMaterial({ color: 0xbfd4ff, transparent: true, opacity: 0.25, depthWrite: false })
+        );
+        floor.position.set(x, BIN_FLOOR_THICKNESS / 2, zz);
+        scene.add(floor);
+
+        const binCode = normBin(z.bin || '');
+        floor.userData = { bin: binCode, items: assignedByUpper[binCode] || [] };
+        hoverables.push(floor);
+
+        if (binCode) {
+          binCenters[binCode] = { x, y: BIN_FLOOR_THICKNESS / 2, z: zz, w: w_shell, h: d_shell, floor, code: binCode };
+          (binMeshes[binCode] ||= []).push(floor);
+        }
+
+        const items = assignedByUpper[binCode] || [];
+        if (items.length) { placeItemsInBin(items, z); }
+      });
+
+      addAxisLabels(labels);
+      addBinLabels(zones);
+
+      // Floor labels
+      {
+        let maxRight = -Infinity;
+        let sumEfZ = 0, nEf = 0, sumAcZ = 0, nAc = 0;
+        for (const z of zones) {
+          const { x, z: cz } = toCenterEff(z);
+          const w = z.width * BIN_SCALE;
+          maxRight = Math.max(maxRight, x + w / 2);
+          const code = String(z.bin || '').toUpperCase();
+          if (code.startsWith('EF')) { sumEfZ += cz; nEf++; }
+          else if (code.startsWith('AC')) { sumAcZ += cz; nAc++; }
+        }
+        const rightX = maxRight + 220;
+        const efZ = nEf ? (sumEfZ / nEf) : 0;
+        const acZ = nAc ? (sumAcZ / nAc) : 0;
+
+        const efMesh = makeFloorTextMesh('EF BAY');
+        efMesh.position.set(rightX, 1.1, efZ);
+        scene.add(efMesh);
+
+        const acMesh = makeFloorTextMesh('AC BAY');
+        acMesh.position.set(rightX, 1.1, acZ);
+        scene.add(acMesh);
+      }
+
+      fitCamera();
+
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      let _hoverTick = 0;
+      const onMove=(e)=>{
+        if (e.target && e.target.closest){
+          if (e.target.closest('#search-details') ||
+              e.target.closest('#dispatchDrawer') ||
+              e.target.closest('#dispatchBackdrop') ||
+              e.target.closest('#bin-detail-panel') ||
+              e.target.closest('#filters') ||
+              e.target.closest('#tools-card')) {
+            return;
+          }
+        }
+
+        const c=document.getElementById('canvas-container').getBoundingClientRect();
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        mouse.set(((e.clientX-c.left)/c.width)*2-1, -((e.clientY-c.top)/c.height)*2+1);
+        positionTooltip(e);
+        if(pinned) return;
+        if((_hoverTick++ & 1)===1) return;
+
+        raycaster.setFromCamera(mouse,camera);
+
+        const itemObjects = itemMeshes.map(o=>o.mesh).filter(m => m.visible !== false);
+        const hits=raycaster.intersectObjects(itemObjects,true);
+
+        if(hits.length){
+          const obj=hits[0].object;
+          if(currentHover!==obj){
+            currentHover=obj;
+            const u = obj.userData || {};
+            if (passesCurrentFilters(u)) showItemTooltip(u);
+            else hideTooltip();
+          }
+        }else{ currentHover=null; hideTooltip(); }
+      };
+      window.addEventListener('mousemove',onMove,{passive:true});
+      window.addEventListener('click',onClick,{passive:true});
+      window.addEventListener('resize',onResize,{passive:true});
+
+      window.addEventListener('keydown',onKeyDown);
+
+      statusColorsToggle.addEventListener('change',()=>{ reapplyItemColors(); applyHighlightOnly(); });
+      timeline.addEventListener('change',()=>{ timelineDate = timeline.value ? new Date(timeline.value) : null; applyFilters(); updateDashboard(); });
+      timelineClear.addEventListener('click',()=>{ timeline.value=''; timelineDate=null; applyFilters(); updateDashboard(); });
+
+      fiSel?.addEventListener('change',()=>{ applyHighlightOnly(); updateDashboard(); });
+      sbuSel?.addEventListener('change',()=>{ applyHighlightOnly(); updateDashboard(); });
+      citySel?.addEventListener('change',()=>{ applyHighlightOnly(); updateDashboard(); });
+      custSel?.addEventListener('change',()=>{ applyHighlightOnly(); updateDashboard(); });
+      topStackSel?.addEventListener('change',()=>{ applyHighlightOnly(); updateDashboard(); });
+
+      const closeBtn = document.getElementById('detailsCloseBtn');
+      if(closeBtn){
+        closeBtn.addEventListener('click', (e)=>{
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          e.stopPropagation();
+          hideDetails();
+        }, true);
+      }
+
+      const exportBtn = document.getElementById('detailsExportBtn');
+      if(exportBtn){
+        exportBtn.addEventListener('click', (e)=>{
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          e.stopPropagation();
+          if (window.exportCustomerWisePanelExcel) window.exportCustomerWisePanelExcel();
+          else alert('Excel export module not loaded yet.');
+        }, true);
+      }
+
+      const detailsBox = document.getElementById('search-details');
+      if(detailsBox){
+        const stop = (ev)=>{ ev.stopPropagation(); };
+        detailsBox.addEventListener('wheel', stop, { passive:true, capture:true });
+        detailsBox.addEventListener('mousedown', stop, { passive:true, capture:true });
+        detailsBox.addEventListener('mousemove', stop, { passive:true, capture:true });
+        detailsBox.addEventListener('touchstart', stop, { passive:true, capture:true });
+        detailsBox.addEventListener('touchmove', stop, { passive:true, capture:true });
+        detailsBox.addEventListener('scroll', ()=>{ updateDetailsStickyVars(); }, { passive:true });
+      }
+
+      bindNavCube();
+      injectTopDownToggle();
+
+      perspCamera = camera;
+      perspControls = controls;
+
+      populateDropdowns();
+      applyFilters();
+
+      animate();
+      updateDashboard();
+
+      // ✅ START mixed-bin auto-flagging + alerts polling (after scene is ready)
+      startMixedPolling();
+    }
+
+    /* ---------- Camera / render ---------- */
+    function fitCamera(){
+      const dist=Math.max(YARD_WIDTH,YARD_HEIGHT)*1.1;
+      camera.position.set(0,dist*0.9,dist*0.42);
+      controls.target.set(0,0,0); controls.update();
+    }
+    function onResize(){
+      const c=document.getElementById('canvas-container');
+      camera.aspect=c.clientWidth/c.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(c.clientWidth,c.clientHeight);
+      labelRenderer.setSize(c.clientWidth,c.clientHeight);
+      if(isTopDown && orthoCamera){
+        updateOrthoFrustumToContent();
+      }
+      updateDetailsStickyVars();
+    }
+    function animate(){
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene,camera);
+      labelRenderer.render(scene,camera);
+    }
+
+    /* ---------- Tween ---------- */
+    function tweenCamera(toPos, toTarget, ms=550){
+      const fromPos = camera.position.clone();
+      const fromTgt = controls.target.clone();
+      const t0 = performance.now();
+      function step(now){
+        const t = Math.min(1, (now - t0) / ms);
+        const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t;
+        camera.position.lerpVectors(fromPos,toPos,ease);
+        controls.target.lerpVectors(fromTgt,toTarget,ease);
+        controls.update();
+        if(t<1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+    function goView(dir){
+      const dist=camera.position.distanceTo(controls.target);
+      const d=dir.clone().normalize().multiplyScalar(dist);
+      const toPos = controls.target.clone().add(d);
+      tweenCamera(toPos, controls.target.clone(), 550);
+    }
+
+    /* ---------- AutoCAD-style NavCube (button) ---------- */
+    function bindNavCube(){
+      const cv  = document.getElementById('navcube');
+      const ctx = cv.getContext('2d');
+
+      const draw = ()=>{
+        const w=cv.width, h=cv.height;
+        ctx.clearRect(0,0,w,h);
+        ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=10;
+        ctx.beginPath(); ctx.arc(w/2,h/2, w*0.35, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle='#94a3b8';
+        ctx.font='10px system-ui';
+        ctx.fillText('N', w/2-4, 14);
+        ctx.fillText('S', w/2-4, h-6);
+        ctx.fillText('W', 6, h/2+3);
+        ctx.fillText('E', w-14, h/2+3);
+        ctx.fillStyle='#dce6f9'; ctx.fillRect(w/2-23, h/2-23, 46, 46);
+        ctx.fillStyle='#bcd4fb'; ctx.beginPath(); ctx.moveTo(w/2+23,h/2+23); ctx.lineTo(w/2+23,h/2-6); ctx.lineTo(w/2+36,h/2-18); ctx.lineTo(w/2+36,h/2+11); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#9ec2fb'; ctx.beginPath(); ctx.moveTo(w/2-23,h/2+23); ctx.lineTo(w/2+23,h/2+23); ctx.lineTo(w/2+36,h/2+11); ctx.lineTo(w/2-10,h/2+11); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#0f172a'; ctx.font='11px system-ui'; ctx.fillText('UP', w/2-11, h/2-27);
+      };
+
+      const region = (x,y)=>{
+        const w=cv.width, h=cv.height, cx=w/2, cy=h/2, r=w*0.35;
+        const dx=x-cx, dy=y-cy, d=Math.hypot(dx,dy);
+        if(d>r-8 && d<r+12){
+          const ang=Math.atan2(dy,dx);
+          if(ang>-Math.PI*3/4 && ang<-Math.PI/4) return 'N';
+          if(ang> Math.PI/4  && ang< Math.PI*3/4) return 'S';
+          if(ang<=-Math.PI*3/4 || ang>= Math.PI*3/4) return 'W';
+          return 'E';
+        }
+        if(x> w/2-23 && x< w/2+23 && y> h/2-23 && y< h/2+23) return 'CENTER';
+        return 'NONE';
+      };
+
+      let dragging=false, lx=0, ly=0;
+      const orbitBy=(dx,dy)=>{
+        const off = new THREE.Vector3().subVectors(camera.position, controls.target);
+        const sph = new THREE.Spherical().setFromVector3(off);
+        const rotSpeed=0.005;
+        sph.theta -= dx*rotSpeed;
+        sph.phi   -= dy*rotSpeed;
+        sph.phi = Math.max(0.01, Math.min(Math.PI-0.01, sph.phi));
+        off.setFromSpherical(sph);
+        camera.position.copy(controls.target.clone().add(off));
+        controls.update();
+      };
+
+      cv.addEventListener('mousedown',e=>{ dragging=true; lx=e.clientX; ly=e.clientY; });
+      window.addEventListener('mouseup',()=>dragging=false);
+      window.addEventListener('mousemove',e=>{ if(!dragging) return; orbitBy(e.clientX-lx, e.clientY-ly); lx=e.clientX; ly=e.clientY; });
+
+      cv.addEventListener('click',e=>{
+        const rect=cv.getBoundingClientRect();
+        const x=e.clientX-rect.left, y=e.clientY-rect.top;
+        const r=region(x,y);
+        if(r==='N') goView(new THREE.Vector3(0,1,0));
+        else if(r==='S') goView(new THREE.Vector3(0,0,1));
+        else if(r==='W') goView(new THREE.Vector3(-1,0,0));
+        else if(r==='E') goView(new THREE.Vector3(1,0,0));
+        else if(r==='CENTER') goView(new THREE.Vector3(1,1,1));
+      });
+      cv.addEventListener('dblclick',()=>{ controls.target.set(0,0,0); goView(new THREE.Vector3(0.6,0.8,0.6)); });
+
+      draw();
+    }
+
+    /* ---------- Coil/plate placement ---------- */
+    function placeItemsInBin(items, zone) {
+      const center = toCenterEff(zone);
+      const cx = center.x;
+      const cz = center.z;
+
+      const innerW = Math.max(40, (zone._effW ?? zone.width) - 2 * INNER_PAD);
+      const innerD = Math.max(40, (zone._effH ?? zone.height) - 2 * INNER_PAD);
+
+      const isCoil = (it) => String(it?.type || '').toLowerCase().includes('coil');
+      const coils  = items.filter(isCoil).slice(0, 18);
+      const plates = items.filter(it => !isCoil(it));
+
+      const binCode = normBin(zone?.bin || '');
+
+      if (coils.length) {
+        const COLS = 7;
+        const r = Math.min(innerW / (COLS + 0.5), innerD / 5) * 0.45;
+        const coilLenX_base = innerW * 0.275;
+        const gap = r * 0.2;
+        const y1 = BIN_FLOOR_THICKNESS + r;
+        const y2 = y1 + Math.sqrt(3) * r;
+        const y3 = y2 + Math.sqrt(3) * r;
+        const dz = 2 * r + gap;
+        const zStart = cz - (3 * dz);
+
+        const bottomRow = [];
+        const midRow    = [];
+        const topRow    = [];
+
+        for (let i = 0; i < 7 && i < coils.length; i++) {
+          const it = coils[i];
+          const xPos = cx;
+          const zPos = zStart + i * dz;
+          const mesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(r, r, coilLenX_base, 12),
+            coilMat()
+          );
+          mesh.rotation.z = Math.PI / 2;
+          mesh.position.set(xPos, y1, zPos);
+          finalizePlacedMesh(mesh, it, zone);
+          const pid = normId(it.plate_id);
+          coilLevel[pid] = 0;
+          coilMaxLevel[binCode] = 3;
+          bottomRow.push({ id: pid, z: zPos, bin: binCode });
+        }
+
+        for (let i = 0; i < 6 && (7 + i) < coils.length; i++) {
+          const it = coils[7 + i];
+          const xPos = cx;
+          const zPos = zStart + (i + 0.5) * dz;
+          const mesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(r, r, coilLenX_base * 0.95, 12),
+            coilMat()
+          );
+          mesh.rotation.z = Math.PI / 2;
+          mesh.position.set(xPos, y2, zPos);
+          finalizePlacedMesh(mesh, it, zone);
+          const pid = normId(it.plate_id);
+          coilLevel[pid] = 1;
+          coilMaxLevel[binCode] = 3;
+          midRow.push({ id: pid, z: zPos, bin: binCode });
+        }
+
+        for (let i = 0; i < 5 && (13 + i) < coils.length; i++) {
+          const it = coils[13 + i];
+          const xPos = cx;
+          const zPos = zStart + (i + 1) * dz;
+          const mesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(r, r, coilLenX_base * 0.9, 12),
+            coilMat()
+          );
+          mesh.rotation.z = Math.PI / 2;
+          mesh.position.set(xPos, y3, zPos);
+          finalizePlacedMesh(mesh, it, zone);
+          const pid = normId(it.plate_id);
+          coilLevel[pid] = 2;
+          coilMaxLevel[binCode] = 3;
+          topRow.push({ id: pid, z: zPos, bin: binCode });
+        }
+
+        const linkNearest = (upper, lower) => {
+          for (const u of upper) {
+            let nearest = null, best = Infinity;
+            for (const l of lower) {
+              const d = Math.abs(u.z - l.z);
+              if (d < best) { best = d; nearest = l; }
+            }
+            if (nearest) {
+              (stackRelations[u.id] ||= { over: null, under: [] }).over = nearest.id;
+              const rec = (stackRelations[nearest.id] ||= { over: null, under: [] });
+              if (!rec.under.includes(u.id)) rec.under.push(u.id);
+            }
+          }
+        };
+        if (bottomRow.length && midRow.length) linkNearest(midRow, bottomRow);
+        if (midRow.length && topRow.length)   linkNearest(topRow,  midRow);
+      }
+
+      if (plates.length) {
+        const padX = Math.max(6, innerW * 0.02);
+        const padZ = Math.max(6, innerD * 0.02);
+        const MAX_L = Math.max(40, innerW - 2 * padX);
+        const MAX_W = Math.max(40, innerD - 2 * padZ);
+        const yStart = BIN_FLOOR_THICKNESS + PLATE_H / 2;
+
+        let stackIndex = 0;
+        for (const it of plates) {
+          const thickness = Number(it?.thickness) && isFinite(it.thickness)
+            ? Math.max(2, Math.min(PLATE_H, +it.thickness))
+            : PLATE_H;
+
+          let L = MAX_L;
+          let W = L / 2;
+          if (W > MAX_W) { W = MAX_W; L = Math.min(MAX_L, 2 * W); }
+          L = Math.max(40, L);
+          W = Math.max(20, W);
+
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(L, thickness, W), plateMat());
+          const jitter = (stackIndex % 3) * 1.2;
+          const xPos = cx + (stackIndex % 2 === 0 ? jitter : -jitter);
+          const zPos = cz + ((stackIndex + 1) % 2 === 0 ? jitter : -jitter);
+          const yPos = yStart + stackIndex * (thickness + 1.5);
+
+          mesh.position.set(xPos, yPos, zPos);
+          finalizePlacedMesh(mesh, it, zone);
+
+          const pid = normId(it.plate_id);
+          plateStackIndex[pid] = stackIndex;
+          plateStackTotal[binCode] = (plateStackTotal[binCode] || 0) + 1;
+
+          if (stackIndex > 0) {
+            const below = normId(plates[stackIndex - 1]?.plate_id);
+            if (pid && below) {
+              (stackRelations[pid] ||= { over: null, under: [] }).over = below;
+              (stackRelations[below] ||= { over: null, under: [] }).under.push(pid);
+            }
+          }
+          stackIndex++;
+        }
+      }
+    }
+
+    function finalizePlacedMesh(mesh, item, zone){
+      const binCode=normBin(zone?.bin||'');
+      mesh.userData={
+        bin:binCode, items:assignedByUpper[binCode]||[],
+        plate_id:item.plate_id, type:item.type, status:item.status,
+        length:item.length, width:item.width, thickness:item.thickness,
+        pieces:item.pieces, grade:item.grade, customer:item.customer, weight:item.weight,
+
+        FI_Rel_text: item.FI_Rel_text ?? item.fi_rel_text ?? '',
+        SBU_RelStatus: item.SBU_RelStatus ?? item.sbu_rel_status ?? '',
+        CustomerCity: item.CustomerCity ?? item.customer_city ?? '',
+        customer: item.customer ?? item.Customer ?? '',
+
+        added_at: item.added_at, updated_at: item.updated_at, created_at: item.created_at, date: item.date
+      };
+      indexIdToMesh(item.plate_id, mesh);
+      itemMeshes.push({mesh,data:item});
+      hoverables.push(mesh);
+
+      if(statusColorsToggle?.checked && mesh.material?.color){
+        mesh.material.color.setHex(statusColor(item.status));
+      }
+      scene.add(mesh);
+    }
+
+    function indexIdToMesh(idRaw, mesh) {
+      const full = String(idRaw || '').trim();
+      if (!full) return;
+      const U = full.toUpperCase();
+      const COMPACT = U.replace(/[^A-Z0-9]+/g, '');
+      const DIGITS = U.replace(/[^0-9]+/g, '');
+      const push = (k) => { if (!k) return; (idToMeshes[k] ||= []).push(mesh); };
+      push('U:' + U);
+      push('C:' + COMPACT);
+      if (DIGITS) push('D:' + DIGITS);
+    }
+
+    /* ---------- Labels ---------- */
+    function addAxisLabels(labelsArr){
+      const chip=(text)=>{ const el=document.createElement('div'); el.className='lbl'; el.setAttribute('data-role','label'); el.textContent=text; return el; };
+      labelsArr.forEach(l=>{
+        const text=String(l?.text??'').trim(); if(!text) return;
+        const lx=Number(l?.x_pos??l?.x), ly=Number(l?.y_pos??l?.y);
+        const w =Number(l?.width||0), h =Number(l?.height||0);
+        if(!Number.isFinite(lx)||!Number.isFinite(ly)) return;
+        const x=(lx+(w?w/2:0))-(YARD_WIDTH/2);
+        const z=(ly+(h?h/2:0))-(YARD_HEIGHT/2);
+        const y=BIN_WALL_HEIGHT+36;
+        const obj=new CSS2DObject(chip(text)); obj.position.set(x,y,z);
+        scene.add(obj);
+      });
+    }
+    function addBinLabels(zs){
+      const chip=(t)=>{ const el=document.createElement('div'); el.className='lbl'; el.setAttribute('data-role','label'); el.textContent=t; return el; };
+      zs.forEach(z=>{
+        const raw=String(z?.bin||'').trim(); if(!raw) return;
+        const bin=normBin(raw);
+        const {x,z:zz}=toCenterEff(z);
+        const el = chip(`${bin}`);
+        el.dataset.bin = bin;
+        el.classList.add('__bin_clickable');
+        const obj=new CSS2DObject(el);
+        obj.position.set(x, BIN_WALL_HEIGHT+20, zz);
+        scene.add(obj);
+      });
+    }
+
+    /* ---------- UI: tooltip / hover ---------- */
+    function onClick(e){
+      if(e.target && e.target.closest){
+        if(e.target.closest('#search-details') ||
+           e.target.closest('#dispatchDrawer') ||
+           e.target.closest('#dispatchDrawerBtn') ||
+           e.target.closest('#dispatchBackdrop') ||
+           e.target.closest('#bin-detail-panel') ||
+           e.target.closest('#filters') ||
+           e.target.closest('#tools-card') ||
+           e.target.closest('#mix-toast')){
+          return;
+        }
+      }
+
+      raycaster.setFromCamera(mouse,camera);
+      const hits=raycaster.intersectObjects(hoverables,true);
+      if(hits.length){
+        const obj=hits[0].object;
+        if(pinned===obj){ pinned=null; hideTooltip(); }
+        else{
+          pinned=obj;
+          const bin=String(obj.userData.bin||'').toUpperCase();
+          const items=obj.userData.items||assignedByUpper[bin]||[];
+          showTooltip(bin,items);
+        }
+        return;
+      }
+
+      const els = document.elementsFromPoint(lastMouseX,lastMouseY);
+      const RX = /(EF|AC)\d{2}[A-G]/i;
+      for(const el of els){
+        if(el && el.getAttribute && el.getAttribute('data-role')==='label'){
+          const txt = (el.textContent || '').trim();
+          const m = txt.match(RX);
+          if(m && window.__openBinDetail){
+            window.__openBinDetail(m[0].toUpperCase());
+            return;
+          }
+        }
+      }
+      pinned=null; hideTooltip();
+    }
+
+    function positionTooltip(evt){
+      const el = document.getElementById('tooltip'); if(!el) return;
+      const pad = 16;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const rect = el.getBoundingClientRect();
+      let x = evt.clientX + 12, y = evt.clientY + 12;
+      x = Math.max(pad, Math.min(x, vw - rect.width - pad));
+      y = Math.max(pad, Math.min(y, vh - rect.height - pad));
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+    }
+
+    function fmtDim(r){
+      const L=r.length||'', W=r.width||'', T=r.thickness||'';
+      if (!L && !W && !T) return '';
+      return [L,W,T].filter(Boolean).join('×');
+    }
+
+    function showItemTooltip(u){
+      const el=document.getElementById('tooltip');
+      const bin = (u.bin || '').toString().toUpperCase();
+      const rowHtml = `
+        <tr>
+          <td>${bin ? bin.slice(-1) : ''}</td>
+          <td>${(u.plate_id||'').toString().toUpperCase()}</td>
+          <td>${u.type||''}</td>
+          <td>${u.status||''}</td>
+          <td>${u.customer||''}</td>
+          <td>${fmtDim(u)}</td>
+          <td>${u.pieces ?? ''}</td>
+          <td>${u.weight ?? ''}</td>
+        </tr>`;
+
+      el.innerHTML = `
+        <h4>Item: ${(u.plate_id||'').toString().toUpperCase()}</h4>
+        <div class="meta">Bin: ${bin} • Row: ${bin ? bin.slice(-1) : '—'}</div>
+        <div class="sheet">
+          <table>
+            <thead>
+              <tr>
+                <th>Row</th><th>ID</th><th>Type</th><th>Status</th>
+                <th>Customer</th><th>L×W×T</th><th>Pieces</th><th>Weight</th>
+              </tr>
+            </thead>
+            <tbody>${rowHtml}</tbody>
+          </table>
+        </div>`;
+      el.style.display='block';
+      el.setAttribute('aria-hidden','false');
+    }
+
+    function showTooltip(bin, items){
+      const el=document.getElementById('tooltip');
+      const filtered = (items||[]).filter(passesCurrentFilters);
+
+      const rows = filtered.map(it => `
+        <tr>
+          <td>${bin.slice(-1)}</td>
+          <td>${(it.plate_id||'').toString().toUpperCase()}</td>
+          <td>${(it.type||'')}</td>
+          <td>${(it.status||'')}</td>
+          <td>${(it.customer||'')}</td>
+          <td>${fmtDim(it)}</td>
+          <td>${it.pieces||''}</td>
+          <td>${it.weight||''}</td>
+        </tr>
+      `).join('') || `<tr><td colspan="8" style="color:#64748b">No items in this bin.</td></tr>`;
+
+      el.innerHTML = `
+        <h4>Bin: ${bin}</h4>
+        <div class="meta">Bay: ${bin.slice(0,2)} • Row: ${bin.slice(-1)} • Items: ${filtered.length}</div>
+        <div class="sheet">
+          <table>
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Customer</th>
+                <th>L×W×T</th>
+                <th>Pieces</th>
+                <th>Weight</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+      el.style.display='block';
+      el.setAttribute('aria-hidden','false');
+    }
+
+    function hideTooltip(){
+      const el=document.getElementById('tooltip');
+      el.style.display='none';
+      el.setAttribute('aria-hidden','true');
+    }
+
+    /* ---------- Search / filter / highlight ---------- */
+    const detailsBox=document.getElementById('search-details');
+    const detailsBody=document.getElementById('search-details-body');
+    const detailsCountEl=document.getElementById('detailsCount');
+    const searchInput=document.getElementById('searchIds');
+
+    function updateDetailsStickyVars(){
+      const box = document.getElementById('search-details');
+      if(!box || box.style.display === 'none') return;
+
+      const h3 = box.querySelector('h3');
+      if(h3){
+        const h = Math.max(1, Math.round(h3.offsetHeight || h3.getBoundingClientRect().height));
+        box.style.setProperty('--details-hdr-h', h + 'px');
+      }
+
+      const tiles = box.querySelectorAll('.cust-tile');
+      tiles.forEach(tile=>{
+        const hdr = tile.querySelector('.cust-hdr');
+        if(!hdr) return;
+        const hh = Math.max(1, Math.round(hdr.offsetHeight || hdr.getBoundingClientRect().height));
+        tile.style.setProperty('--cust-hdr-h', hh + 'px');
+      });
+    }
+
+    let __detailsResizeObs = null;
+    function bindDetailsResizeObservers(){
+      const box = document.getElementById('search-details');
+      if(!box || typeof ResizeObserver === 'undefined') return;
+
+      if(__detailsResizeObs){ __detailsResizeObs.disconnect(); __detailsResizeObs = null; }
+
+      __detailsResizeObs = new ResizeObserver(()=>{ updateDetailsStickyVars(); });
+
+      const h3 = box.querySelector('h3');
+      if(h3) __detailsResizeObs.observe(h3);
+
+      box.querySelectorAll('.cust-hdr').forEach(hdr=>__detailsResizeObs.observe(hdr));
+    }
+
+    function bindCustomerTableHeaderSync(){
+      const box = document.getElementById('search-details');
+      if(!box || box.style.display === 'none') return;
+
+      box.querySelectorAll('.cust-tile').forEach(tile=>{
+        const bodyWrap = tile.querySelector('.cust-table-wrap');
+        const hdrScroll = tile.querySelector('.cust-colhdr-scroll');
+        const hdrInnerTable = tile.querySelector('.cust-colhdr-table');
+        if(!bodyWrap || !hdrScroll || !hdrInnerTable) return;
+
+        if(bodyWrap.__hdrSyncBound) return;
+        bodyWrap.__hdrSyncBound = true;
+
+        const syncWidth = ()=>{
+          try{
+            hdrInnerTable.style.width = (bodyWrap.scrollWidth) ? bodyWrap.scrollWidth + 'px' : '100%';
+          }catch(_){}
+        };
+
+        let lock = false;
+
+        bodyWrap.addEventListener('scroll', ()=>{
+          if(lock) return;
+          lock = true;
+          hdrScroll.scrollLeft = bodyWrap.scrollLeft;
+          lock = false;
+        }, { passive:true });
+
+        if(typeof ResizeObserver !== 'undefined'){
+          const ro = new ResizeObserver(()=>{ syncWidth(); hdrScroll.scrollLeft = bodyWrap.scrollLeft; });
+          ro.observe(bodyWrap);
+          ro.observe(hdrInnerTable);
+        }
+
+        syncWidth();
+        hdrScroll.scrollLeft = bodyWrap.scrollLeft;
+      });
+    }
+
+    function setAllShellOpacity(op){
+      for(const key in binMeshes){
+        for(const m of binMeshes[key]){
+          if(!m?.material) continue;
+          m.material.opacity = op;
+          m.material.transparent = true;
+          m.material.depthWrite = false;
+          m.material.needsUpdate = true;
+        }
+      }
+    }
+    function restoreShellOpacity(){
+      for(const key in binMeshes){
+        const arr = binMeshes[key] || [];
+        if(arr[0]?.material){
+          arr[0].material.opacity = 0.25;
+          arr[0].material.depthWrite = false;
+          arr[0].material.needsUpdate = true;
+        }
+      }
+    }
+    function hideWallsForFocus(){
+      for(const key in binMeshes){
+        const arr=binMeshes[key]||[];
+        if(arr[0]?.material){ arr[0].material.opacity=0.05; arr[0].material.needsUpdate=true; }
+      }
+    }
+    function showWallsNormal(){ restoreShellOpacity(); }
+
+    function resetItemStyles(){
+      for(const {mesh,data} of itemMeshes){
+        const coil = isCoilItem(data);
+        mesh.material = coil ? coilMat() : plateMat();
+        if(statusColorsToggle?.checked && mesh.material?.color) mesh.material.color.setHex(statusColor(data.status));
+        mesh.renderOrder = 0;
+        if(mesh.material?.depthTest!==undefined) mesh.material.depthTest=true;
+        if(mesh.material?.depthWrite!==undefined) mesh.material.depthWrite=true;
+        mesh.material.needsUpdate = true;
+      }
+    }
+    function reapplyItemColors(){
+      for(const {mesh,data} of itemMeshes){
+        if(mesh.material?.color){
+          mesh.material.color.setHex(
+            statusColorsToggle?.checked
+              ? statusColor(data.status)
+              : (String(data?.status||'').toLowerCase().includes('wip') ? 0xf1c40f : 0x1f85de)
+          );
+        }
+        mesh.material.needsUpdate = true;
+      }
+    }
+
+    function highlightMeshes(meshes) {
+      const matched = [];
+      const seen = new Set();
+      const add = (m) => {
+        if (!m || seen.has(m)) return;
+        seen.add(m);
+        matched.push(m);
+        if (m.material?.color) m.material.color.setHex(0xff0000);
+        if (m.material?.opacity !== undefined) m.material.opacity = 1.0;
+        if ('depthTest' in m.material)  m.material.depthTest  = false;
+        if ('depthWrite' in m.material) m.material.depthWrite = false;
+        m.renderOrder = 9999;
+      };
+      meshes.forEach(add);
+      return matched;
+    }
+
+    function meshesByCustomer(query) {
+      const q = String(query || '').trim().toLowerCase();
+      if (!q) return [];
+      const out = [];
+      for (const { mesh, data } of itemMeshes) {
+        const c = (data?.customer || '').toString().toLowerCase();
+        if (c && c.includes(q)) out.push(mesh);
+      }
+      return out;
+    }
+
+    function foundListFromMeshes(meshes) {
+      const seen = new Set();
+      const out  = [];
+      for (const m of meshes) {
+        const u = m.userData || {};
+        const key = (u.plate_id || '') + '|' + (u.bin || '');
+        if (seen.has(key)) continue; seen.add(key);
+        out.push({
+          item_id:   u.plate_id,
+          plate_id:  u.plate_id,
+          type:      u.type,
+          status:    u.status,
+          bin:       u.bin,
+          length:    u.length,
+          width:     u.width,
+          thickness: u.thickness,
+          pieces:    u.pieces,
+          grade:     u.grade,
+          customer:  u.customer,
+          weight:    u.weight,
+          FI_Rel_text: u.FI_Rel_text,
+          SBU_RelStatus: u.SBU_RelStatus,
+          CustomerCity: u.CustomerCity,
+          added_at: u.added_at,
+          created_at: u.created_at,
+          updated_at: u.updated_at,
+          date: u.date,
+        });
+      }
+      return out;
+    }
+
+    async function doSearch() {
+      const raw = (searchInput?.value || '').trim();
+      if (!raw) {
+        clearHighlights();
+        hideDetails();
+        fitCamera();
+        showWallsNormal();
+        updateDashboard();
+        return;
+      }
+
+      const tokens = raw.split(/[,\s]+/).map(t => t.trim()).filter(Boolean);
+      const isIdToken = (t) => /\d/.test(t);
+
+      const idTokens       = tokens.filter(isIdToken);
+      const customerTokens = tokens.filter(t => !isIdToken(t));
+
+      let serverFound = [];
+      let serverMissing = [];
+      try {
+        const res = await fetch('/api/locate?q=' + encodeURIComponent(raw), { credentials: 'same-origin' });
+        if (res.ok) {
+          const data = await res.json();
+          serverFound   = Array.isArray(data.found)   ? data.found   : [];
+          serverMissing = Array.isArray(data.missing) ? data.missing : [];
+        }
+      } catch (_) { /* ignore */ }
+
+      clearHighlights();
+      hideWallsForFocus();
+      setAllShellOpacity(0.05);
+
+      const bins = [];
+      const idStrings = [];
+
+      for (const f of serverFound) {
+        const b = String(f.bin || '').toUpperCase();
+        if (b) { bins.push(b); markBin(b); }
+        const idAny = f.item_id ?? f.plate_id ?? f.id;
+        if (idAny) idStrings.push(String(idAny));
+      }
+
+      if (!idStrings.length && idTokens.length) {
+        idTokens.forEach(t => idStrings.push(t));
+      }
+
+      let focused = false;
+      let allMatchedMeshes = [];
+
+      if (idStrings.length) {
+        const matchedById = highlightIDs(idStrings);
+        allMatchedMeshes.push(...matchedById);
+        if (matchedById.length) {
+          focusOnItems(matchedById);
+          focused = true;
+        }
+      }
+
+      let customerMeshes = [];
+      for (const cust of customerTokens) {
+        const m = meshesByCustomer(cust);
+        customerMeshes.push(...m);
+        m.forEach(mesh => {
+          const b = String(mesh?.userData?.bin || '').toUpperCase();
+          if (b) markBin(b);
+        });
+      }
+      if (customerMeshes.length) {
+        customerMeshes = highlightMeshes(customerMeshes);
+        allMatchedMeshes.push(...customerMeshes);
+        if (!focused) {
+          focusOnItems(customerMeshes);
+          focused = true;
+        }
+      }
+
+      if (!focused && bins.length) {
+        focusOnBins([...new Set(bins)]);
+      }
+
+      let detailFound = serverFound.slice();
+      if (!detailFound.length && allMatchedMeshes.length) {
+        detailFound = foundListFromMeshes(allMatchedMeshes);
+      }
+
+      const missing = serverMissing || [];
+      if (!detailFound.length && customerTokens.length && !allMatchedMeshes.length) {
+        missing.push(...customerTokens);
+      }
+
+      showDetailsCustomerWise(detailFound, missing, 'Search Results');
+      updateDashboard();
+    }
+
+    function hideDetails(){
+      if(detailsBody) detailsBody.innerHTML='';
+      if(detailsBox) detailsBox.style.display='none';
+      if(detailsCountEl) detailsCountEl.textContent='';
+      window.__lastCustomerWiseFound = [];
+    }
+
+    function getStackPositionForItem(it){
+      const pid = normId(it?.item_id ?? it?.plate_id ?? it?.id ?? '');
+      const bin = String(it?.bin || '').toUpperCase();
+      const ty = String(it?.type || '').toLowerCase();
+      const isCoil = ty.includes('coil');
+
+      if(isCoil){
+        const lvl = (coilLevel[pid] !== undefined) ? coilLevel[pid] : null;
+        const max = (coilMaxLevel[bin] !== undefined) ? coilMaxLevel[bin] : null;
+        if(lvl === null || max === null) return { top:'—', bottom:'—' };
+        return { bottom: String(lvl + 1), top: String(max - lvl) };
+      }
+
+      const idx = (plateStackIndex[pid] !== undefined) ? plateStackIndex[pid] : null;
+      const total = (plateStackTotal[bin] !== undefined) ? plateStackTotal[bin] : null;
+      if(idx === null || total === null) return { top:'—', bottom:'—' };
+      return { bottom: String(idx + 1), top: String(total - idx) };
+    }
+
+    function getCurrentFilterSnapshot(){
+      const sVal = document.getElementById('statusFilter')?.value ?? 'all';
+      const dVal = document.getElementById('dateFilter')?.value ?? 'all';
+      const from = document.getElementById('startDate')?.value ?? '';
+      const to   = document.getElementById('endDate')?.value ?? '';
+      const fi   = document.getElementById('fiRelFilter')?.value ?? 'all';
+      const sbu  = document.getElementById('sbuRelFilter')?.value ?? 'all';
+      const cust = document.getElementById('customerFilter')?.value ?? 'all';
+      const city = document.getElementById('customerCityFilter')?.value ?? 'all';
+      const top  = document.getElementById('topStackFilter')?.value ?? 'all';
+      const tl   = document.getElementById('timeline')?.value ?? '';
+      const q    = document.getElementById('searchIds')?.value ?? '';
+      return { status:sVal, dateBucket:dVal, from, to, fi, sbu, customer:cust, city, topStack:top, timeline:tl, search:q };
+    }
+
+    function showDetailsCustomerWise(found=[], missing=[], titlePrefix='Details'){
+      const list = Array.isArray(found) ? found : [];
+      if((!list.length) && (!missing || !missing.length)){
+        hideDetails();
+        return;
+      }
+
+      window.__lastCustomerWiseFound = list.slice();
+      window.__lastCustomerWiseMissing = Array.isArray(missing) ? missing.slice() : [];
+      window.__lastCustomerWiseTitle = titlePrefix;
+      window.__lastCustomerWiseFilters = getCurrentFilterSnapshot();
+      window.__lastCustomerWiseExportedAt = new Date().toISOString();
+
+      const groups = {};
+      for(const it of list){
+        const cust = String(it.customer ?? it.Customer ?? it.CUSTOMER ?? 'Unknown').trim() || 'Unknown';
+        (groups[cust] ||= []).push(it);
+      }
+
+      const customers = Object.keys(groups).sort((a,b)=>a.localeCompare(b));
+      const totalItems = list.length;
+
+      if(detailsCountEl) detailsCountEl.textContent = `(${customers.length} customers • ${totalItems} items)`;
+
+      let html = '';
+
+      const headerCols = `
+        <colgroup>
+          <col class="col-id"><col class="col-bin"><col class="col-type"><col class="col-status">
+          <col class="col-fi"><col class="col-sbu"><col class="col-top"><col class="col-bottom">
+          <col class="col-dim"><col class="col-pcs"><col class="col-wt">
+        </colgroup>
+      `;
+
+      const headerRow = `
+        <thead>
+          <tr>
+            <th>ID</th><th>Bin</th><th>Type</th><th>Status</th>
+            <th>FI</th><th>SBU</th>
+            <th>From Top</th><th>From Bottom</th>
+            <th>L×W×T</th><th>Pcs</th><th>Wt</th>
+          </tr>
+        </thead>
+      `;
+
+      for(const cust of customers){
+        const items = groups[cust] || [];
+        const count = items.length;
+        const cities = Array.from(new Set(items.map(x=>String(x.CustomerCity||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+        const cityText = cities.length ? cities.join(', ') : '—';
+
+        const rows = items.map(it=>{
+          const id = (it.item_id||it.plate_id||'').toString();
+          const bin = String(it.bin||'').toUpperCase();
+          const st  = String(it.status||'');
+          const ty  = String(it.type||'');
+          const fi  = String(it.FI_Rel_text||it.fi_text||'');
+          const sbu = String(it.SBU_RelStatus||'');
+          const wt  = (it.weight ?? '');
+          const dim = [it.length, it.width, it.thickness].filter(v=>v!==undefined && v!==null && String(v).trim()!=='').join('×') || '';
+          const pcs = (it.pieces ?? '');
+          const pos = getStackPositionForItem(it);
+
+          return `
+            <tr>
+              <td class="mono">${id.replace(/</g,'&lt;')}</td>
+              <td class="mono">${bin.replace(/</g,'&lt;')}</td>
+              <td>${ty.replace(/</g,'&lt;')}</td>
+              <td>${st.replace(/</g,'&lt;')}</td>
+              <td>${fi.replace(/</g,'&lt;')}</td>
+              <td>${sbu.replace(/</g,'&lt;')}</td>
+              <td class="mono">${pos.top}</td>
+              <td class="mono">${pos.bottom}</td>
+              <td>${dim.replace(/</g,'&lt;')}</td>
+              <td>${pcs}</td>
+              <td>${wt}</td>
+            </tr>
+          `;
+        }).join('');
+
+        html += `
+          <div class="cust-tile">
+            <div class="cust-hdr">
+              <div>
+                <strong>${cust.replace(/</g,'&lt;')}</strong>
+                <div class="meta">Cities: ${cityText.replace(/</g,'&lt;')}</div>
+              </div>
+              <div class="meta"><b>${count}</b> item${count===1?'':'s'}</div>
+            </div>
+
+            <div class="cust-colhdr">
+              <div class="cust-colhdr-inner">
+                <div class="cust-colhdr-scroll">
+                  <table class="cust-colhdr-table">
+                    ${headerCols}
+                    ${headerRow}
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="cust-body">
+              <div class="cust-table-wrap">
+                <table class="cust-table">
+                  ${headerCols}
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+
+              <div class="muted" style="margin-top:8px; font-size:11px;">
+                Stack position is computed per-bin from the 3D stacking (plates) / coil tiers (coils).
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      if(missing?.length){
+        html += `<div class="result"><em class="muted">Not found: ${missing.join(', ').replace(/</g,'&lt;')}</em></div>`;
+      }
+
+      if(detailsBody) detailsBody.innerHTML = html;
+      if(detailsBox) detailsBox.style.display = 'block';
+
+      requestAnimationFrame(()=>{
+        requestAnimationFrame(()=>{
+          updateDetailsStickyVars();
+          bindDetailsResizeObservers();
+          bindCustomerTableHeaderSync();
+        });
+      });
+    }
+
+    function highlightIDs(idsRaw) {
+      const matchedMeshes = [];
+      const seen = new Set();
+
+      const add = (m) => {
+        if (seen.has(m)) return;
+        seen.add(m);
+        matchedMeshes.push(m);
+        if (m.material?.color) m.material.color.setHex(0xff0000);
+        if (m.material?.opacity !== undefined) m.material.opacity = 1.0;
+        if ('depthTest' in m.material)  m.material.depthTest  = false;
+        if ('depthWrite' in m.material) m.material.depthWrite = false;
+        m.renderOrder = 9999;
+      };
+
+      for (const raw of idsRaw) {
+        const s = String(raw || '').trim();
+        if (!s) continue;
+
+        const isDigits = /^\d+$/.test(s);
+        if (isDigits) {
+          const arr = idToMeshes['D:' + s] || [];
+          arr.forEach(add);
+        } else {
+          const U = s.toUpperCase();
+          const C = U.replace(/[^A-Z0-9]+/g, '');
+          (idToMeshes['U:' + U] || []).forEach(add);
+          (idToMeshes['C:' + C] || []).forEach(add);
+        }
+      }
+      return matchedMeshes;
+    }
+
+    function markBin(bin){
+      const B=String(bin||'').toUpperCase(); if(!B || highlightRings[B]) return;
+      const c=binCenters[B]; if(!c) return;
+      const outer=Math.min(c.w,c.h)*0.45, inner=outer*0.68;
+      const ring=new THREE.Mesh(new THREE.RingGeometry(inner,outer,24), new THREE.MeshBasicMaterial({color:0x00c2a8,transparent:true,opacity:0.95,side:THREE.DoubleSide}));
+      ring.rotation.x=-Math.PI/2; ring.position.set(c.x,(c.y||1)+2,c.z); scene.add(ring); highlightRings[B]=ring;
+    }
+
+    function clearHighlights(){
+      for(const k in highlightRings){ scene.remove(highlightRings[k]); delete highlightRings[k]; }
+      resetItemStyles();
+      showWallsNormal();
+      hideDetails();
+    }
+
+    function focusOnItems(meshes){
+      if(!meshes.length) return;
+      let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+      for(const m of meshes){ const box=new THREE.Box3().setFromObject(m);
+        minX=Math.min(minX,box.min.x); maxX=Math.max(maxX,box.max.x);
+        minY=Math.min(minY,box.min.y); maxY=Math.max(maxY,box.max.y);
+        minZ=Math.min(minZ,box.min.z); maxZ=Math.max(maxZ,box.max.z); }
+      const cx=(minX+maxX)/2, cy=(minY+maxY)/2, cz=(minZ+maxZ)/2;
+      const size=Math.max(maxX-minX, maxY-minY, maxZ-minZ);
+      const dist=Math.min(8000, Math.max(700, size*2.2));
+      tweenCamera(new THREE.Vector3(cx + dist*0.6, cy + dist*0.8, cz + dist*0.6), new THREE.Vector3(cx,cy,cz), 600);
+    }
+
+    function focusOnBins(bins){
+      const pts=bins.map(b=>binCenters[String(b).toUpperCase()]).filter(Boolean); if(!pts.length) return;
+      let minX=Infinity, minZ=Infinity, maxX=-Infinity, maxZ=-Infinity;
+      for(const p of pts){
+        minX=Math.min(minX, p.x-p.w/2);
+        maxX=Math.max(maxX, p.x+p.w/2);
+        minZ=Math.min(minZ, p.z-p.h/2);
+        maxZ=Math.max(maxZ, p.z+p.h/2);
+      }
+      const cx=(minX+maxX)/2, cz=(minZ+maxZ)/2; const size=Math.max(maxX-minX, maxZ-minZ);
+      const dist=Math.min(8000, Math.max(700, size * 1.8));
+      tweenCamera(new THREE.Vector3(cx + dist*0.66, dist*1.1, cz + dist*0.66), new THREE.Vector3(cx,0,cz), 600);
+    }
+
+    document.getElementById('searchBtn')?.addEventListener('click',doSearch);
+    document.getElementById('applyBtn')?.addEventListener('click',()=>{ applyFilters(); updateDashboard(); });
+    document.getElementById('resetBtn')?.addEventListener('click', () => {
+      const searchInput=document.getElementById('searchIds');
+      if(searchInput) searchInput.value = '';
+      clearHighlights();
+      fitCamera();
+      updateDashboard();
+    });
+
+    let liveSearchTimer=null;
+    const searchInputEl=document.getElementById('searchIds');
+    searchInputEl?.addEventListener('input', () => { clearTimeout(liveSearchTimer); liveSearchTimer = setTimeout(()=>{ doSearch(); updateDashboard(); }, LIVE_SEARCH_DELAY); });
+    searchInputEl?.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ clearTimeout(liveSearchTimer); doSearch(); updateDashboard(); } });
+
+    const _statusSel=document.getElementById('statusFilter'),
+          _dateSel=document.getElementById('dateFilter'),
+          _start=document.getElementById('startDate'),
+          _end=document.getElementById('endDate');
+
+    const norm=(v)=>String(v??'').trim().toLowerCase();
+    const extractDateString=(it)=>it.date||it.added_at||it.updated_at||it.created_at||it.received_at||null;
+
+    function startOf(unit){ const now=new Date(), t=new Date(now);
+      if(unit==='day') t.setHours(0,0,0,0);
+      else if(unit==='week'){ const d=(t.getDay()+6)%7; t.setHours(0,0,0,0); t.setDate(t.getDate()-d); }
+      else if(unit==='month'){ t.setDate(1); t.setHours(0,0,0,0); }
+      else if(unit==='year'){ t.setMonth(0,1); t.setHours(0,0,0,0); }
+      return t; }
+    function inBucket(dateStr,bucket){
+      if(!dateStr||bucket==='all') return true;
+      const d=new Date(dateStr); if(isNaN(d)) return true;
+      if(bucket==='today') return d>=startOf('day');
+      if(bucket==='week')  return d>=startOf('week');
+      if(bucket==='month') return d>=startOf('month');
+      if(bucket==='year')  return d>=startOf('year');
+      return true;
+    }
+    function inCustomRange(dateStr,fromStr,toStr){
+      if(!dateStr) return false;
+      const d=new Date(dateStr); if(isNaN(d)) return false;
+      let ok=true;
+      if(fromStr){ const f=new Date(fromStr); if(!isNaN(f)) ok=ok&&(d>=f); }
+      if(toStr){
+        const t=new Date(toStr);
+        if(!isNaN(t)) ok=ok&&(d<=new Date(t.getFullYear(),t.getMonth(),t.getDate(),23,59,59,999));
+      }
+      return ok;
+    }
+    function statusMatches(itemStatus,wanted){
+      if(wanted==='all') return true;
+      const s=norm(itemStatus);
+      const isFG=s==='fg'||s.includes('finished');
+      const isWIP=s.includes('wip')||s.includes('work in progress');
+      const isGFA=s.includes('gfa')||s.includes('good for availability');
+      const isPSF=s.includes('psfs')||s.includes('prime stock for sale');
+      const isRFD=s.includes('ready for dispatch')||s==='rfd'||s.includes('dispatch ready');
+      const isREJ=s.includes('rejected')||s==='rej';
+      if(wanted==='finished good') return isFG;
+      if(wanted==='wip') return isWIP;
+      if(wanted==='gfa') return isGFA;
+      if(wanted==='psfs') return isPSF;
+      if(wanted==='ready for dispatch') return isRFD;
+      if(wanted==='rejected') return isREJ;
+      if(wanted==='others') return !(isFG||isWIP||isGFA||isPSF||isRFD||isREJ);
+      return true;
+    }
+
+    function extraFiltersMatch(it){
+      const wantFi   = fiSel?.value ?? 'all';
+      const wantSbu  = sbuSel?.value ?? 'all';
+      const wantCity = citySel?.value ?? 'all';
+      const wantCust = custSel?.value ?? 'all';
+
+      const fi   = String(it?.FI_Rel_text ?? it?.fi_rel_text ?? '').trim();
+      const sbu  = String(it?.SBU_RelStatus ?? it?.sbu_rel_status ?? '').trim();
+      const city = String(it?.CustomerCity ?? it?.customer_city ?? '').trim();
+      const cust = String(it?.customer ?? it?.Customer ?? '').trim();
+
+      if(wantFi   !== 'all' && fi   !== wantFi) return false;
+      if(wantSbu  !== 'all' && sbu  !== wantSbu) return false;
+      if(wantCity !== 'all' && city !== wantCity) return false;
+      if(wantCust !== 'all' && cust !== wantCust) return false;
+      return true;
+    }
+
+    function baseFiltersMatch(it){
+      const sVal=_statusSel?_statusSel.value:'all';
+      const dVal=_dateSel?_dateSel.value:'all';
+      const from=_start?.value||'';
+      const to=_end?.value||'';
+
+      const okS = statusMatches(it?.status, sVal);
+      const ds  = extractDateString(it || {});
+      const okD = (dVal==='custom') ? ((from||to)?inCustomRange(ds,from,to):true) : inBucket(ds,dVal);
+
+      let okT = true;
+      if(timelineDate && ds){
+        const d=new Date(ds); okT = !isNaN(d) ? (d<=timelineDate) : true;
+      }
+      return okS && okD && okT;
+    }
+
+    function applyFilters(){
+      for(const {mesh} of itemMeshes){
+        const u = mesh.userData || {};
+        mesh.visible = baseFiltersMatch(u);
+      }
+      resetItemStyles();
+      reapplyItemColors();
+      applyHighlightOnly();
+    }
+
+    function buildTopPlateIndexForVisible(){
+      const topByBin = {};
+      for(const {mesh} of itemMeshes){
+        if(mesh.visible !== true) continue;
+        const u = mesh.userData || {};
+        if(!isPlateItem(u)) continue;
+        const bin = String(u.bin||'').toUpperCase();
+        if(!bin) continue;
+        const pid = normId(u.plate_id);
+        const idx = (plateStackIndex[pid] !== undefined) ? plateStackIndex[pid] : -Infinity;
+        if(topByBin[bin] === undefined || idx > topByBin[bin]) topByBin[bin] = idx;
+      }
+      return topByBin;
+    }
+
+    function isTopPlateMesh(mesh, topByBin){
+      const u = mesh.userData || {};
+      if(!isPlateItem(u)) return false;
+      const bin = String(u.bin||'').toUpperCase();
+      if(!bin) return false;
+      const maxIdx = topByBin?.[bin];
+      if(maxIdx === undefined) return false;
+      const pid = normId(u.plate_id);
+      const idx = (plateStackIndex[pid] !== undefined) ? plateStackIndex[pid] : -Infinity;
+      return idx === maxIdx;
+    }
+
+    function isFGStatus(it){
+      const s = String(it?.status||'').toLowerCase().trim();
+      return (s === 'fg' || s.includes('finished'));
+    }
+
+    function parseFiReleased(it){
+      const raw = String(it?.FI_Rel_text ?? it?.fi_rel_text ?? '').trim();
+      const m = raw.match(/FI\s*RELEASED(?:\s*\((\d+)\))?/i);
+      if(!m) return { isReleased:false, version:null, raw };
+      const v = (m[1] !== undefined) ? parseInt(m[1],10) : null;
+      return { isReleased:true, version: (Number.isFinite(v) ? v : null), raw };
+    }
+
+    function fiTopModeMatches(it, mode){
+      const p = parseFiReleased(it);
+      if(!p.isReleased) return false;
+      if(mode === 'fg_fi')  return p.version === null;
+      if(mode === 'fg_fi2') return p.version === 2;
+      return true;
+    }
+
+    function applyHighlightOnly(){
+      const wantFi   = fiSel?.value ?? 'all';
+      const wantSbu  = sbuSel?.value ?? 'all';
+      const wantCity = citySel?.value ?? 'all';
+      const wantCust = custSel?.value ?? 'all';
+      const wantTop  = topStackSel?.value ?? 'all';
+
+      const anyExtra = (
+        wantFi !== 'all' ||
+        wantSbu !== 'all' ||
+        wantCity !== 'all' ||
+        wantCust !== 'all' ||
+        wantTop !== 'all'
+      );
+
+      resetItemStyles();
+      reapplyItemColors();
+
+      if(!anyExtra){
+        hideDetails();
+        return;
+      }
+
+      const matches = [];
+      const topPlateByBin = (wantTop !== 'all') ? buildTopPlateIndexForVisible() : null;
+
+      for(const {mesh} of itemMeshes){
+        if(mesh.visible !== true) continue;
+        const u = mesh.userData || {};
+
+        if(!extraFiltersMatch(u)) continue;
+
+        if(wantTop !== 'all'){
+          if(!isPlateItem(u)) continue;
+          if(!isTopPlateMesh(mesh, topPlateByBin)) continue;
+          if(!isFGStatus(u)) continue;
+          if(!fiTopModeMatches(u, wantTop)) continue;
+        }
+
+        matches.push(mesh);
+      }
+
+      const highlighted = highlightMeshes(matches);
+      const details = foundListFromMeshes(highlighted);
+      showDetailsCustomerWise(details, [], (wantTop !== 'all') ? 'Top-of-Stack' : 'Filtered');
+    }
+
+    function passesCurrentFilters(it){
+      return baseFiltersMatch(it);
+    }
+
+    function syncRangeVisibility(){
+      const rb=document.getElementById('customRange');
+      const ds=document.getElementById('dateFilter');
+      if(rb&&ds) rb.style.display=(ds.value==='custom')?'flex':'none';
+    }
+    document.getElementById('statusFilter')?.addEventListener('change',()=>{ applyFilters(); updateDashboard(); });
+    document.getElementById('dateFilter')?.addEventListener('change',()=>{ syncRangeVisibility(); applyFilters(); updateDashboard(); });
+    document.getElementById('startDate')?.addEventListener('change',()=>{ applyFilters(); updateDashboard(); });
+    document.getElementById('endDate')?.addEventListener('change',()=>{ applyFilters(); updateDashboard(); });
+    syncRangeVisibility();
+
+    init();
+    window.__yard3d = { scene, camera, renderer, controls };
+
+    /* -------- Keyboard controls -------- */
+    function onKeyDown(e){
+      const step = 80;
+      const zoomStep = 0.9;
+      const upStep = 60;
+
+      const pan = (dx, dz)=>{
+        const offset = new THREE.Vector3();
+        const te = camera.matrix.elements;
+        const xAxis = new THREE.Vector3(te[0], te[1], te[2]).normalize();
+        const zAxis = new THREE.Vector3(te[8], te[9], te[10]).normalize();
+        offset.copy(xAxis).multiplyScalar(dx).add(zAxis.multiplyScalar(dz));
+        controls.target.add(offset);
+        camera.position.add(offset);
+        controls.update();
+      };
+
+      switch(e.key){
+        case 'ArrowUp': case 'w': case 'W': pan(0,-step); break;
+        case 'ArrowDown': case 's': case 'S': pan(0, step); break;
+        case 'ArrowLeft': case 'a': case 'A': pan(-step,0); break;
+        case 'ArrowRight': case 'd': case 'D': pan( step,0); break;
+        case 'q': case 'Q': controls.target.y-=upStep; camera.position.y-=upStep; controls.update(); break;
+        case 'e': case 'E': controls.target.y+=upStep; camera.position.y+=upStep; controls.update(); break;
+        case 'r': case 'R': {
+          const dir=new THREE.Vector3().subVectors(camera.position,controls.target).multiplyScalar(zoomStep);
+          camera.position.copy(controls.target.clone().add(dir)); controls.update(); break;
+        }
+        case 'f': case 'F': {
+          const dir=new THREE.Vector3().subVectors(camera.position,controls.target).multiplyScalar(1/zoomStep);
+          camera.position.copy(controls.target.clone().add(dir)); controls.update(); break;
+        }
+        case '0': controls.target.set(0,0,0); goView(new THREE.Vector3(0.6,0.8,0.6)); break;
+        case 'l': case 'L': {
+          const cb=document.getElementById('showLabels');
+          if(cb){ cb.checked=!cb.checked; document.body.classList.toggle('labels-hidden', !cb.checked); }
+          break;
+        }
+        default: return;
+      }
+    }
+
+    function updateDashboard(){ /* intentionally empty */ }
+
+    /* ------------------------------------------------------------------
+        Top-down 2D orthographic mode
+    -------------------------------------------------------------------*/
+    function injectTopDownToggle(){
+      const filters=document.getElementById('filters');
+      if(!filters) return;
+      const wrap=document.createElement('label');
+      wrap.className='toggle-labels';
+      wrap.style.marginLeft='8px';
+      wrap.innerHTML='<input type="checkbox" id="topDown2DToggle"><span>Top-down 2D</span>';
+      filters.appendChild(wrap);
+
+      const cb=wrap.querySelector('#topDown2DToggle');
+      cb.addEventListener('change',()=>{ cb.checked ? enterTopDown() : exitTopDown(); });
+    }
+
+    function computeContentBounds(){
+      let box=null;
+      for(const key in binMeshes){
+        const arr=binMeshes[key]||[];
+        const floor=arr[0];
+        if(!floor) continue;
+        const b=new THREE.Box3().setFromObject(floor);
+        box = box ? box.union(b) : b.clone();
+      }
+      if(!box){
+        box = new THREE.Box3(new THREE.Vector3(-8000,0,-8000), new THREE.Vector3(8000,0,8000));
+      }
+      return box;
+    }
+
+    function updateOrthoFrustumToContent(){
+      const container=document.getElementById('canvas-container');
+      if(!container || !orthoCamera) return;
+      const bounds=computeContentBounds();
+      const w=bounds.max.x - bounds.min.x;
+      const h=bounds.max.z - bounds.min.z;
+      const margin=1.08;
+      const aspect=container.clientWidth/container.clientHeight;
+      let viewW=w*margin, viewH=h*margin;
+      if(viewW/viewH < aspect){ viewW = viewH*aspect; } else { viewH = viewW/aspect; }
+      orthoCamera.left   = -viewW/2;
+      orthoCamera.right  =  viewW/2;
+      orthoCamera.top    =  viewH/2;
+      orthoCamera.bottom = -viewH/2;
+      orthoCamera.near = -5000;
+      orthoCamera.far  =  5000;
+      orthoCamera.updateProjectionMatrix();
+
+      const cx = (bounds.min.x + bounds.max.x)/2;
+      const cz = (bounds.min.z + bounds.max.z)/2;
+      orthoCamera.position.set(cx, 2000, cz);
+      orthoCamera.lookAt(cx,0,cz);
+      if(orthoControls){
+        orthoControls.target.set(cx,0,cz);
+        orthoControls.update();
+      }
+    }
+
+    function createOrthoIfNeeded(){
+      if(orthoCamera) return;
+      orthoCamera=new THREE.OrthographicCamera(-1,1,1,-1,-5000,5000);
+      orthoCamera.up.set(0,0,-1);
+
+      orthoControls=new OrbitControls(orthoCamera, renderer.domElement);
+      orthoControls.enableDamping = true;
+      orthoControls.dampingFactor = 0.12;
+      orthoControls.enableRotate = false;
+      orthoControls.screenSpacePanning = true;
+      orthoControls.enablePan = true;
+      orthoControls.mouseButtons.LEFT   = THREE.MOUSE.PAN;
+      orthoControls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+      orthoControls.mouseButtons.RIGHT  = THREE.MOUSE.PAN;
+      orthoControls.touches.ONE = THREE.TOUCH.PAN;
+      orthoControls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+
+      updateOrthoFrustumToContent();
+    }
+
+    function enterTopDown(){
+      if(isTopDown) return;
+      isTopDown=true;
+
+      createOrthoIfNeeded();
+      updateOrthoFrustumToContent();
+
+      camera = orthoCamera;
+      controls = orthoControls;
+
+      for(const key in binMeshes){
+        const arr=binMeshes[key]||[];
+        if(arr[0]?.material){
+          arr[0].material.opacity = 0.12;
+          arr[0].material.needsUpdate = true;
+        }
+      }
+
+      const nc=document.getElementById('navcube');
+      if(nc) nc.style.pointerEvents='none';
+    }
+
+    function exitTopDown(){
+      if(!isTopDown) return;
+      isTopDown=false;
+
+      camera = perspCamera;
+      controls = perspControls;
+
+      showWallsNormal();
+
+      const nc=document.getElementById('navcube');
+      if(nc) nc.style.pointerEvents='';
+    }
+  </script>
+
+  <div id="ui-overlay" aria-hidden="false">
+    <div class="ui-card" style="padding:8px;">
+      <canvas id="navcube" width="110" height="110" title="Drag to orbit · Click ring for Top/Front/Left/Right · Click cube for Iso · Double-click for Reset"></canvas>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const cb=document.getElementById('showLabels'); if(!cb) return;
+      const apply=()=>{ document.body.classList.toggle('labels-hidden', !cb.checked); };
+      cb.addEventListener('change',apply); apply();
+    })();
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    const getRefs=()=>new Promise(resolve=>{ let tries=0; const t=setInterval(()=>{ if(window.__yard3d){ clearInterval(t); resolve(window.__yard3d); } if(++tries>200){ clearInterval(t); resolve(null); } },25); });
+    (async()=>{
+      const refs=await getRefs(); if(!refs) return;
+    })();
+  </script>
+
+  <style>.__bin_clickable { cursor: pointer; }</style>
+
+  <!-- ======= BIN DETAIL PANEL SCRIPT (FIXED) ======= -->
+  <!-- (UNCHANGED from your version) -->
+  <!-- ... KEEP YOUR EXISTING BIN DETAIL PANEL SCRIPT HERE ... -->
+
+  <!-- ======= DISPATCH DRAWER (UNCHANGED from your version) ======= -->
+  <!-- ... KEEP YOUR EXISTING DISPATCH DRAWER CODE HERE ... -->
+
+  <!-- ===================== EXCEL EXPORT (UNCHANGED from your version) ===================== -->
+  <!-- ... KEEP YOUR EXISTING XLSX EXPORT CODE HERE ... -->
+
+</body>
+</html>

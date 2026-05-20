@@ -1,0 +1,178 @@
+.admin-wrap { max-width: 1200px; margin: 0 auto; padding: 10px; font-family: 'DM Sans', sans-serif; }
+.admin-header { color: #0f2a43; margin-bottom: 24px; font-weight: 800; font-size: 24px; }
+.admin-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(15,42,67,.08); border: 1px solid #eef2f7; margin-bottom: 24px; }
+.admin-card h2 { margin-top: 0; color: #0f2a43; font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 16px; font-weight: 700; }
+.admin-table { width: 100%; border-collapse: collapse; text-align: left; }
+.admin-table th, .admin-table td { padding: 14px 12px; border-bottom: 1px solid #f1f5f9; }
+.admin-table th { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+.admin-table td { color: #1e293b; font-size: 14px; font-weight: 500; }
+.btn-approve { background: #1abc9c; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 12px; margin-right: 8px; transition: background 0.2s; }
+.btn-approve:hover { background: #16a085; }
+.btn-reject { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 12px; transition: background 0.2s; }
+.btn-reject:hover { background: #dc2626; }
+.badge-admin { background: #0047AB; color: white; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.badge-user { background: #f1f5f9; color: #64748b; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; border: 1px solid #e2e8f0; }
+/* ============================================================
+   MULTI-THEME OVERRIDES FOR ADMIN
+   Mirrors the theme tokens from style.css
+============================================================ */
+
+/* ── Base Dark ── */
+[data-theme="dark"] .admin-header { color: var(--text-primary); }
+[data-theme="dark"] .admin-card {
+  background: var(--surface);
+  border-color: var(--surface-border);
+  box-shadow: 0 10px 30px rgba(0,0,0,.3);
+}
+[data-theme="dark"] .admin-card h2 {
+  color: var(--text-primary);
+  border-bottom-color: var(--surface-border);
+}
+[data-theme="dark"] .admin-table th { color: var(--text-secondary); }
+[data-theme="dark"] .admin-table td { color: var(--text-primary); }
+[data-theme="dark"] .admin-table th,
+[data-theme="dark"] .admin-table td { border-bottom-color: var(--surface-border); }
+[data-theme="dark"] .badge-user {
+  background: rgba(255,255,255,.08);
+  color: var(--text-secondary);
+  border-color: var(--surface-border);
+}
+
+/* ── Industrial Neo Light ── */
+[data-theme="industrial-neo"] .admin-wrap { font-family: 'JetBrains Mono', monospace; }
+[data-theme="industrial-neo"] .admin-header { color: #111318; }
+[data-theme="industrial-neo"] .admin-card {
+  background: #fff;
+  border: 2px solid #111318;
+  border-radius: 4px;
+  box-shadow: 4px 4px 0px #111318;
+}
+[data-theme="industrial-neo"] .admin-card h2 {
+  color: #111318;
+  border-bottom: 2px solid #FFD600;
+}
+[data-theme="industrial-neo"] .admin-table th { color: #374151; }
+[data-theme="industrial-neo"] .admin-table td { color: #111318; }
+[data-theme="industrial-neo"] .admin-table th,
+[data-theme="industrial-neo"] .admin-table td { border-bottom-color: #d1d5db; }
+[data-theme="industrial-neo"] .btn-approve { background: #AEEA00; color: #111318; border-radius: 2px; box-shadow: 2px 2px 0 #111318; }
+[data-theme="industrial-neo"] .btn-approve:hover { background: #9ed600; }
+[data-theme="industrial-neo"] .btn-reject { background: #FF5722; border-radius: 2px; box-shadow: 2px 2px 0 #111318; }
+[data-theme="industrial-neo"] .btn-reject:hover { background: #E64A19; }
+[data-theme="industrial-neo"] .badge-admin { background: #FF5722; border-radius: 2px; }
+[data-theme="industrial-neo"] .badge-user { background: #f3f4f6; color: #374151; border-color: #d1d5db; border-radius: 2px; }
+
+/* ── Industrial Neo Dark ── */
+[data-theme="industrial-neo-dark"] .admin-wrap { font-family: 'JetBrains Mono', monospace; }
+[data-theme="industrial-neo-dark"] .admin-header { color: #F3F4F6; }
+[data-theme="industrial-neo-dark"] .admin-card {
+  background: #1a1d23;
+  border: 2px solid #FFD600;
+  border-radius: 4px;
+  box-shadow: 4px 4px 0px #FFD600;
+}
+[data-theme="industrial-neo-dark"] .admin-card h2 {
+  color: #F3F4F6;
+  border-bottom: 2px solid rgba(255,214,0,.4);
+}
+[data-theme="industrial-neo-dark"] .admin-table th { color: #FFD600; }
+[data-theme="industrial-neo-dark"] .admin-table td { color: #F3F4F6; }
+[data-theme="industrial-neo-dark"] .admin-table th,
+[data-theme="industrial-neo-dark"] .admin-table td { border-bottom-color: rgba(255,214,0,.15); }
+[data-theme="industrial-neo-dark"] .btn-approve { background: #AEEA00; color: #111318; border-radius: 2px; box-shadow: 2px 2px 0 #FFD600; }
+[data-theme="industrial-neo-dark"] .btn-approve:hover { background: #9ed600; }
+[data-theme="industrial-neo-dark"] .btn-reject { background: #FF5722; border-radius: 2px; box-shadow: 2px 2px 0 #FFD600; }
+[data-theme="industrial-neo-dark"] .btn-reject:hover { background: #E64A19; }
+[data-theme="industrial-neo-dark"] .badge-admin { background: #FF5722; border-radius: 2px; }
+[data-theme="industrial-neo-dark"] .badge-user { background: rgba(255,255,255,.08); color: #9CA3AF; border-color: rgba(255,214,0,.2); border-radius: 2px; }
+
+/* ── Frosted Glass Light ── */
+[data-theme="frosted-glass"] .admin-header { color: #1e1b4b; }
+[data-theme="frosted-glass"] .admin-card {
+  background: rgba(255,255,255,.45);
+  border: 1px solid rgba(255,255,255,.6);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(124,58,237,.1), inset 0 1px 0 rgba(255,255,255,.6);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+}
+[data-theme="frosted-glass"] .admin-card h2 {
+  color: #1e1b4b;
+  border-bottom-color: rgba(124,58,237,.15);
+}
+[data-theme="frosted-glass"] .admin-table th { color: #4c1d95; }
+[data-theme="frosted-glass"] .admin-table td { color: #1e1b4b; }
+[data-theme="frosted-glass"] .admin-table th,
+[data-theme="frosted-glass"] .admin-table td { border-bottom-color: rgba(255,255,255,.4); }
+[data-theme="frosted-glass"] .btn-approve { background: linear-gradient(135deg, #06B6D4, #0891b2); border-radius: 999px; box-shadow: 0 4px 12px rgba(6,182,212,.3); border: none; }
+[data-theme="frosted-glass"] .btn-reject { border-radius: 999px; box-shadow: 0 4px 12px rgba(239,68,68,.3); }
+[data-theme="frosted-glass"] .badge-admin { background: linear-gradient(135deg, #7C3AED, #06B6D4); border-radius: 999px; }
+[data-theme="frosted-glass"] .badge-user { background: rgba(255,255,255,.5); color: #4c1d95; border-color: rgba(255,255,255,.6); }
+
+/* ── Frosted Glass Dark ── */
+[data-theme="frosted-glass-dark"] .admin-header { color: #e0e7ff; }
+[data-theme="frosted-glass-dark"] .admin-card {
+  background: rgba(30,27,75,.55);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 24px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.1);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+}
+[data-theme="frosted-glass-dark"] .admin-card h2 {
+  color: #e0e7ff;
+  border-bottom-color: rgba(255,255,255,.1);
+}
+[data-theme="frosted-glass-dark"] .admin-table th { color: #a5b4fc; }
+[data-theme="frosted-glass-dark"] .admin-table td { color: #e0e7ff; }
+[data-theme="frosted-glass-dark"] .admin-table th,
+[data-theme="frosted-glass-dark"] .admin-table td { border-bottom-color: rgba(255,255,255,.08); }
+[data-theme="frosted-glass-dark"] .btn-approve { background: linear-gradient(135deg, #22d3ee, #0891b2); border-radius: 999px; box-shadow: 0 4px 12px rgba(34,211,238,.3); border: none; }
+[data-theme="frosted-glass-dark"] .btn-reject { border-radius: 999px; box-shadow: 0 4px 12px rgba(239,68,68,.3); }
+[data-theme="frosted-glass-dark"] .badge-admin { background: linear-gradient(135deg, #818cf8, #22d3ee); border-radius: 999px; }
+[data-theme="frosted-glass-dark"] .badge-user { background: rgba(255,255,255,.08); color: #a5b4fc; border-color: rgba(255,255,255,.12); }
+
+/* ── Material 3.0 Light ── */
+[data-theme="material3"] .admin-header { color: #1A1C1E; }
+[data-theme="material3"] .admin-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(11,87,208,.1);
+  border-radius: 24px;
+  box-shadow: none;
+}
+[data-theme="material3"] .admin-card h2 {
+  color: #1A1C1E;
+  border-bottom-color: rgba(11,87,208,.1);
+}
+[data-theme="material3"] .admin-table th { color: #44474F; }
+[data-theme="material3"] .admin-table td { color: #1A1C1E; }
+[data-theme="material3"] .admin-table th,
+[data-theme="material3"] .admin-table td { border-bottom-color: rgba(11,87,208,.08); }
+[data-theme="material3"] .btn-approve { background: #0F9D58; border-radius: 999px; box-shadow: none; }
+[data-theme="material3"] .btn-approve:hover { background: #0b8a4a; }
+[data-theme="material3"] .btn-reject { border-radius: 999px; box-shadow: none; }
+[data-theme="material3"] .badge-admin { background: #0B57D0; border-radius: 999px; }
+[data-theme="material3"] .badge-user { background: #EAEFF8; color: #44474F; border-color: rgba(11,87,208,.15); border-radius: 999px; }
+
+/* ── Material 3.0 Dark ── */
+[data-theme="material3-dark"] .admin-header { color: #E3E2E6; }
+[data-theme="material3-dark"] .admin-card {
+  background: #1A1C1E;
+  border: 1px solid rgba(168,199,250,.12);
+  border-radius: 24px;
+  box-shadow: none;
+}
+[data-theme="material3-dark"] .admin-card h2 {
+  color: #E3E2E6;
+  border-bottom-color: rgba(168,199,250,.12);
+}
+[data-theme="material3-dark"] .admin-table th { color: #A8C7FA; }
+[data-theme="material3-dark"] .admin-table td { color: #E3E2E6; }
+[data-theme="material3-dark"] .admin-table th,
+[data-theme="material3-dark"] .admin-table td { border-bottom-color: rgba(168,199,250,.1); }
+[data-theme="material3-dark"] .btn-approve { background: #81C995; color: #1A1C1E; border-radius: 999px; box-shadow: none; }
+[data-theme="material3-dark"] .btn-approve:hover { background: #6db37e; }
+[data-theme="material3-dark"] .btn-reject { border-radius: 999px; background: #F28B82; box-shadow: none; }
+[data-theme="material3-dark"] .btn-reject:hover { background: #e07268; }
+[data-theme="material3-dark"] .badge-admin { background: #0B57D0; border-radius: 999px; }
+[data-theme="material3-dark"] .badge-user { background: rgba(168,199,250,.12); color: #C4C6CF; border-color: rgba(168,199,250,.2); border-radius: 999px; }

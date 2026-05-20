@@ -1,0 +1,1129 @@
+{% extends "base.html" %}
+
+{% block title %}Bin Allocator{% endblock %}
+
+{% block extra_head %}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+
+  :root{
+    /* Mapped to base.html variables for dark mode compatibility */
+    --card: var(--surface);
+    --muted: var(--text-secondary);
+    --text: var(--text-primary);
+    --border: var(--surface-border);
+    --shadow: 0 12px 32px rgba(15,42,67,0.08);
+    --shadow-sm: 0 4px 12px rgba(15,42,67,0.04);
+    --br: 16px;
+    --brand-blue: #0047AB;
+    --jindal-aqua: #1abc9c;
+    --blue-dark: #003A8C;
+    --gray: #6b7280;
+    --gray-dark: #4b5563;
+    --ring: 0 0 0 3px rgba(0,71,171,0.15);
+  }
+
+  body {
+    font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  h1 {
+    margin: 0 0 16px 0;
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .content{ padding:0; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--br);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.3s ease;
+  }
+  .card:hover {
+    box-shadow: 0 16px 40px rgba(15,42,67,0.12);
+  }
+
+  /* ✅ ENHANCED AI Summary Box Styling */
+  #allocAiSummary {
+    display: none;
+    margin-bottom: 24px;
+    padding: 22px 28px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    font-size: 14.5px;
+    color: var(--text);
+    box-shadow: 0 6px 20px rgba(15,42,67,0.04);
+  }
+  #allocAiSummary .ai-title {
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    color: var(--text);
+    font-size: 17px;
+    letter-spacing: -0.2px;
+  }
+  #allocAiSummaryText {
+    line-height: 1.7;
+    font-weight: 500;
+  }
+
+  label{
+    font-size:12px;
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    font-weight: 700;
+  }
+  input, select{
+    padding:9px 12px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    font-size:13px;
+    font-weight: 600;
+    background:var(--card);
+    outline:none;
+    color: var(--text);
+    transition: all .2s ease;
+  }
+  input:focus, select:focus{
+    border-color: var(--brand-blue);
+    box-shadow: var(--ring);
+  }
+
+  .card-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .card-head h2{
+    margin:0;
+    font-size:20px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    color:var(--text);
+  }
+
+  .actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:flex-end;
+  }
+
+  .limit-wrap{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:6px 8px 6px 12px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--card);
+    box-shadow: var(--shadow-sm);
+  }
+  .limit-wrap .limit-label{
+    display:flex;
+    flex-direction:column;
+    line-height:1.2;
+    gap:2px;
+    white-space:nowrap;
+  }
+  .limit-wrap .limit-label .t1{
+    font-size:12px;
+    font-weight:800;
+    color:var(--text);
+  }
+  .limit-wrap .limit-label .t2{
+    font-size:11px;
+    color:var(--muted);
+    font-weight: 500;
+  }
+  .limit-wrap input{
+    width:90px;
+    min-width:90px;
+    text-align:center;
+    font-weight:800;
+    border-radius:8px;
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+  }
+
+  button{
+    padding:10px 18px;
+    border-radius:10px;
+    border: none;
+    color:#fff;
+    cursor:pointer;
+    font-weight:800;
+    font-size: 13px;
+    letter-spacing:.2px;
+    transition: all .2s ease;
+  }
+  button:active{ transform: translateY(2px); }
+  .btn-blue{
+    background: linear-gradient(135deg, var(--brand-blue) 0%, var(--blue-dark) 100%);
+    box-shadow: 0 4px 14px rgba(0,71,171,0.25);
+  }
+  .btn-blue:hover{ 
+    background: linear-gradient(135deg, var(--blue-dark) 0%, #002255 100%); 
+    box-shadow: 0 6px 20px rgba(0,71,171,0.35);
+  }
+  .btn-gray{
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-gray:hover{ opacity: 0.8; }
+
+  .muted{ color:var(--muted); font-size:13px; font-weight: 500; }
+
+  .filters-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-top:16px;
+    flex-wrap:wrap;
+  }
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 14px;
+    border-radius:9999px;
+    border:1px solid var(--border);
+    background:var(--card);
+    font-size:13px;
+    font-weight: 600;
+    color:var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+  .pill b{ font-weight:900; color: var(--brand-blue); }
+
+  .table-wrap{
+    margin-top:16px;
+    max-height:70vh;
+    overflow:auto;
+    border:1px solid var(--border);
+    border-radius: 12px;
+    background: transparent;
+    /* Custom Scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+  }
+  .table th,.table td{
+    padding:14px 12px;
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+    text-align:left;
+    vertical-align:top;
+    background:transparent;
+  }
+  .table td {
+    font-weight: 500;
+    color: var(--text);
+  }
+  .table td b {
+    color: var(--text);
+    font-weight: 800;
+  }
+
+  .status-wrap{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .status-pill{
+    display:inline-flex;
+    align-items:center;
+    padding:6px 12px;
+    border-radius:9999px;
+    font-weight:800;
+    font-size:12px;
+    line-height:1;
+    white-space:nowrap;
+    letter-spacing: 0.2px;
+  }
+  /* Status pill colors (leave as is for color coding, but ensure legibility) */
+  .status-accepted{ background:rgba(22,163,74,.15); color:#4ade80; border: 1px solid rgba(22,163,74,.3); }
+  .status-rejected{ background:rgba(239,68,68,.15); color:#f87171; border: 1px solid rgba(239,68,68,.3); }
+  .status-warning{ background:rgba(245,158,11,.15); color:#fbbf24; border: 1px solid rgba(245,158,11,.3); }
+  .status-note{ font-size:11px; color:var(--muted); margin-top:4px; font-weight: 600; }
+  .status-select{ min-width:140px; padding: 6px 10px; font-weight: 700; background: var(--card); color: var(--text); }
+
+  .table th{
+    background:var(--card);
+    color:var(--muted);
+    position:sticky;
+    top:0;
+    z-index:2;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .table th .th-wrap{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .table th .th-title{
+    font-weight:800;
+  }
+  .table th select.th-filter{
+    width:100%;
+    box-sizing:border-box;
+    padding:6px 8px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-size:12px;
+    background:var(--card);
+    color:var(--text);
+    text-transform: none;
+    font-weight: 600;
+    letter-spacing: normal;
+  }
+  .table tbody tr{ transition: background .15s ease; }
+  .table tbody tr:hover td{ background:rgba(128,128,128,0.05); }
+
+  .badge-stat {
+    display:inline-flex;
+    padding:6px 12px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:800;
+    margin-right: 8px;
+    background: var(--card) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+  }
+
+  .log{
+    margin-top:20px;
+    max-height:25vh;
+    overflow:auto;
+    padding:16px;
+    background: #0f172a;
+    border-radius: 14px;
+    color: #e2e8f0;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+  }
+  .log div{ padding:4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .log div:last-child { border-bottom: none; }
+  .log .warn{ color:#fbbf24; }
+  .log .err{ color:#f87171; }
+
+  .modal-backdrop{
+    position:fixed; inset:0;
+    background:rgba(15,23,42,.6);
+    backdrop-filter: blur(4px);
+    display:none;
+    align-items:flex-start;
+    justify-content:center;
+    padding:60px 16px;
+    z-index:9999;
+  }
+  .modal{
+    width:min(980px, 98vw);
+    background:var(--card);
+    border-radius:20px;
+    box-shadow:0 25px 50px -12px rgba(0,0,0,.25);
+    border:1px solid var(--border);
+    overflow:hidden;
+  }
+  .modal-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    padding:20px 24px;
+    border-bottom:1px solid var(--border);
+    background:var(--card);
+  }
+  .modal-title{
+    font-weight:900;
+    color:var(--text);
+    font-size:18px;
+  }
+  .modal-sub{
+    font-size:13px;
+    color:var(--muted);
+    margin-top:4px;
+    font-weight: 500;
+  }
+  .modal-close{
+    border:1px solid var(--border);
+    background:var(--card);
+    color:var(--text);
+    border-radius:10px;
+    padding:8px 14px;
+    cursor:pointer;
+    font-weight:800;
+    transition: all .2s;
+  }
+  .modal-close:hover { opacity: 0.8; }
+  .modal-body{
+    padding:0;
+    max-height:65vh;
+    overflow:auto;
+  }
+  .mini-table{ width:100%; border-collapse:collapse; }
+  .mini-table th,.mini-table td{
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+    text-align:left;
+    vertical-align:top;
+    color: var(--text);
+  }
+  .mini-table th{
+    position:sticky; top:0; z-index:1;
+    background:var(--card);
+    color:var(--muted);
+    font-weight:800;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .btn-mini{
+    padding:8px 14px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--card);
+    color:var(--text);
+    cursor:pointer;
+    font-weight:800;
+    font-size:12px;
+    white-space:nowrap;
+    transition: all .15s ease;
+  }
+  .btn-mini:hover{
+    opacity: 0.8;
+  }
+
+  @media (max-width: 720px){
+    .limit-wrap input{ width:100px; min-width:100px; }
+    .table th,.table td{ padding:10px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="content">
+    <h1>Bin Allocator</h1>
+
+    <div id="allocAiSummary">
+      <div class="ai-title">
+        <span style="font-size:20px;">✨</span> AI Allocator Summary
+      </div>
+      <div id="allocAiSummaryText">Waiting for logic engine...</div>
+    </div>
+
+    <section class="card" style="margin-bottom:20px;">
+      <div class="card-head">
+        <div>
+          <h2>Unassigned Materials</h2>
+        </div>
+
+        <div class="actions">
+          <div class="limit-wrap">
+            <div class="limit-label">
+              <div class="t1">Limit</div>
+              <div class="t2">Use <b style="color:var(--text);">ALL</b> for full list</div>
+            </div>
+            <input id="unassigned-limit" value="ALL" aria-label="Limit (use ALL)" />
+          </div>
+
+          <button type="button" class="btn-blue" id="btn-unassigned-refresh">Refresh Engine</button>
+          <button type="button" class="btn-gray" id="btn-toggle-auto">Auto: ON (5 min)</button>
+        </div>
+      </div>
+
+      <div id="unassigned-summary" style="margin-top:16px;"></div>
+
+      <div class="filters-row">
+        <div class="pill" id="filter-status">
+          <span>Filters Active:</span> <b id="filter-count">0</b>
+          <span class="muted" id="filter-note" style="margin-left: 6px;">—</span>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn-gray" id="btn-clear-filters" style="font-size: 12px; padding: 8px 14px;">Clear Filters</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table" id="unassigned-table">
+          <thead>
+            <tr>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">#</div>
+                  <select class="th-filter" data-col="idx">
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">Material / Plate ID</div>
+                  <select class="th-filter" data-col="item_id">
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">Type</div>
+                  <select class="th-filter" data-col="type">
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">Customer</div>
+                  <select class="th-filter" data-col="customer">
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">Prod. Date</div>
+                  <select class="th-filter" data-col="production_date">
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">Prod. Time</div>
+                  <select class="th-filter" data-col="production_time">
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">Suggested Bin</div>
+                  <select class="th-filter" data-col="suggested_bin">
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">Bin Details</div>
+                  <select class="th-filter" data-col="bin_details">
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div class="th-wrap">
+                  <div class="th-title">Status</div>
+                  <select class="th-filter" data-col="status">
+                    <option value="">All</option>
+                    <option value="Accepted">Accepted</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:32px;">
+        <h3 style="margin:0 0 12px 0; font-size:16px; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+          <span style="color:#4ade80; font-size: 20px;">✓</span> Accepted Allocations
+        </h3>
+        <div class="table-wrap">
+          <table class="table" id="accepted-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Material/Plate ID</th>
+                <th>Type</th>
+                <th>Customer</th>
+                <th>Suggested Bin</th>
+                <th>Actual Bin</th>
+                <th>Bin Details</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="margin-top:32px;">
+        <h3 style="margin:0 0 12px 0; font-size:16px; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+          <span style="color:#f87171; font-size: 20px;">✗</span> Rejected Allocations
+        </h3>
+        <div class="table-wrap">
+          <table class="table" id="rejected-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Material/Plate ID</th>
+                <th>Type</th>
+                <th>Customer</th>
+                <th>Suggested Bin</th>
+                <th>Actual Bin</th>
+                <th>Bin Details</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 style="font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 8px;">System Logs</h2>
+      <div class="log" id="alloc-log"></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="bin-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="bin-modal-title">Bin:</div>
+          <div class="modal-sub" id="bin-modal-sub">Loading…</div>
+        </div>
+        <button class="modal-close" type="button" id="bin-modal-close">✕ Close Window</button>
+      </div>
+      <div class="modal-body">
+        <table class="mini-table" id="bin-items-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Material/Plate ID</th>
+              <th>Type</th>
+              <th>Customer</th>
+              <th>Grade</th>
+              <th>Thickness (mm)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="muted" id="bin-modal-empty" style="margin-top:16px; padding: 0 16px; display:none; font-weight: 600;"></div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const API_STATE = '/api/allocator/state';
+  const API_UNASSIGNED_SUMMARY = '/api/allocator/unassigned/summary';
+  const API_UNASSIGNED_SUGGEST = '/api/allocator/unassigned/suggest';
+  const API_BIN_DETAILS = '/api/allocator/bin_details';
+  const API_STATUS_LIST = '/api/allocator/status/list';
+  const API_STATUS_DETAILS = '/api/allocator/status/details'; 
+  const API_STATUS_SET = '/api/allocator/status/set';
+  const API_STATUS_UNDO = '/api/allocator/status/undo';
+  const REFRESH_MS = 5 * 60 * 1000;
+
+  const $ = (s, r=document)=>r.querySelector(s);
+  const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
+
+  let autoOn = true;
+  let autoTimer = null;
+
+  let lastSuggestions = [];
+  let statusMap = {};
+
+  function log(msg, kind='info'){
+    const el = document.createElement('div');
+    el.className = (kind==='warn') ? 'warn' : (kind==='err' ? 'err' : '');
+    const time = new Date().toLocaleTimeString([], { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    el.innerHTML = `<span style="color:#64748b;">[${time}]</span> &nbsp; ${msg}`;
+    $('#alloc-log').prepend(el);
+  }
+
+  async function fetchJSON(url, opts={}){
+    const r = await fetch(url, { credentials:'same-origin', ...opts });
+    const text = await r.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch(e){ data = null; }
+    if (!r.ok) {
+      const msg = (data && (data.error || data.message))
+        ? (data.error || data.message)
+        : (text || `HTTP ${r.status}`);
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  function escapeHtml(s){
+    return (s ?? '').toString()
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+
+  function getActiveFilters(){
+    const filters = {};
+    $$('.th-filter').forEach(sel=>{
+      const col = sel.dataset.col;
+      const val = (sel.value || '').trim();
+      if (val) filters[col] = val;
+    });
+    return filters;
+  }
+
+  function updateFilterStatus(){
+    const filters = getActiveFilters();
+    const keys = Object.keys(filters);
+    $('#filter-count').textContent = `${keys.length}`;
+    if (!keys.length){
+      $('#filter-note').textContent = '—';
+      return;
+    }
+    const parts = keys.map(k=>`${k}="${filters[k]}"`);
+    $('#filter-note').textContent = parts.join(' | ');
+  }
+
+  function buildRowMap(it, idx){
+    return {
+      idx: (idx + 1).toString(),
+      item_id: (it.item_id ?? ''),
+      type: (it.type ?? ''),
+      customer: (it.customer ?? ''),
+      production_date: (it.production_date ?? ''),
+      production_time: (it.production_time ?? ''),
+      suggested_bin: (it.suggested_bin ?? ''),
+      bin_details: (it.suggested_bin ?? ''),
+      status: (it.status ?? '')
+    };
+  }
+
+  function applyTableFilters(){
+    const filters = getActiveFilters();
+    const keys = Object.keys(filters);
+
+    let filtered = lastSuggestions.slice();
+    if (keys.length){
+      filtered = filtered.filter((it, idx)=>{
+        const rowMap = buildRowMap(it, idx);
+        return keys.every(k=>{
+          return (rowMap[k] ?? '').toString() === filters[k];
+        });
+      });
+    }
+
+    renderTable(filtered);
+    updateFilterStatus();
+  }
+
+  function statusCellHTML(it){
+    const v = (it.status || '').toString();
+
+    const sug = (it.suggested_bin || '').toString();
+    const t = (it.type || '').toString();
+    const c = (it.customer || '').toString();
+    
+    // Hidden attributes needed for backend
+    const g = (it.grade || '').toString();
+    const thk = (it.thickness_mm ?? '');
+    const m = (it.method || '').toString();
+    const sc = (it.score ?? '');
+    const reasons = Array.isArray(it.reasons) ? it.reasons : [];
+    const reasonsJson = JSON.stringify(reasons);
+
+    const sel = `
+      <select class="status-select"
+        data-sug="${escapeHtml(sug)}"
+        data-type="${escapeHtml(t)}"
+        data-customer="${escapeHtml(c)}"
+        data-grade="${escapeHtml(g)}"
+        data-thk="${escapeHtml(thk)}"
+        data-method="${escapeHtml(m)}"
+        data-score="${escapeHtml(sc)}"
+        data-reasons="${escapeHtml(reasonsJson)}"
+      >
+        <option value="">— Undo —</option>
+        <option value="Accepted" ${v==='Accepted'?'selected':''}>Accepted</option>
+        <option value="Rejected" ${v==='Rejected'?'selected':''}>Rejected</option>
+      </select>
+    `;
+
+    let pill = '<span class="muted">—</span>';
+    if (v === 'Accepted'){
+      if (it.followed === 0){
+        pill = `<div style="margin-top: 6px;">
+          <span class="status-pill status-warning">Accepted</span>
+          <div class="status-note">(${escapeHtml(it.note || 'Allocation accepted but not followed')})</div>
+        </div>`;
+      } else {
+        pill = `<div style="margin-top: 6px;"><span class="status-pill status-accepted">Accepted</span></div>`;
+      }
+    } else if (v === 'Rejected'){
+      pill = `<div style="margin-top: 6px;"><span class="status-pill status-rejected">Rejected</span></div>`;
+    }
+    return `<div class="status-wrap">${sel}${pill}</div>`;
+  }
+
+  async function handleStatusChange(selectEl){
+    const itemId = (selectEl.closest('tr')?.querySelector('td:nth-child(2)')?.textContent || '').trim();
+    const suggestedBin = (selectEl.dataset.sug || '').toString();
+    const v = (selectEl.value || '').toString();
+
+    const payloadExtra = {
+      item_type: (selectEl.dataset.type || ''),
+      customer: (selectEl.dataset.customer || ''),
+      grade: (selectEl.dataset.grade || ''),
+      thickness_mm: (selectEl.dataset.thk || ''),
+      method: (selectEl.dataset.method || ''),
+      score: (selectEl.dataset.score || ''),
+      reasons_json: (selectEl.dataset.reasons || '[]')
+    };
+
+    try{
+      if (!v){
+        await fetchJSON(API_STATUS_UNDO, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({item_id: itemId})
+        });
+        log(`Status undone for ${itemId}`);
+      } else {
+        await fetchJSON(API_STATUS_SET, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            item_id: itemId,
+            status: v,
+            suggested_bin: suggestedBin,
+            ...payloadExtra
+          })
+        });
+        log(`Status set to ${v} for ${itemId}`);
+      }
+      await refreshUnassigned();
+    }catch(e){
+      log(`Status update failed: ${e.message}`, 'err');
+    }
+  }
+
+  function renderTable(rows){
+    const tbody = $('#unassigned-table tbody');
+    tbody.innerHTML = '';
+    rows.forEach((it, i)=>{
+      const bin = (it.suggested_bin ?? '').toString().trim();
+      const btn = bin ? `<button class="btn-mini" data-bin="${escapeHtml(bin)}">Show Details</button>` : `<span class="muted">—</span>`;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td style="font-family: monospace; font-size: 14px;">${escapeHtml(it.item_id)}</td>
+        <td>${escapeHtml(it.type)}</td>
+        <td>${escapeHtml(it.customer)}</td>
+        <td>${escapeHtml(it.production_date)}</td>
+        <td>${escapeHtml(it.production_time)}</td>
+        <td style="font-family: monospace; font-size: 14px;"><b>${escapeHtml(it.suggested_bin)}</b></td>
+        <td>${btn}</td>
+        <td>${statusCellHTML(it)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    $$('#unassigned-table .btn-mini').forEach(b=>{
+      if (b.dataset.bound === '1') return;
+      b.dataset.bound = '1';
+      b.addEventListener('click', async ()=>{
+        const bin = b.dataset.bin || '';
+        await openBinModal(bin);
+      });
+    });
+
+    $$('#unassigned-table .status-select').forEach(s=>{
+      if (s.dataset.bound === '1') return;
+      s.dataset.bound = '1';
+      s.addEventListener('change', async ()=>handleStatusChange(s));
+    });
+  }
+
+  function renderStatusTables(acceptedRows, rejectedRows){
+    const render = (tableId, rows)=>{
+      const tbody = $(`#${tableId} tbody`);
+      tbody.innerHTML = '';
+      rows.forEach((it, i)=>{
+        const bin = (it.suggested_bin ?? '').toString().trim();
+        const btn = bin ? `<button class="btn-mini" data-bin="${escapeHtml(bin)}">Show Details</button>` : `<span class="muted">—</span>`;
+        const actualBin = (it.actual_bin ?? '').toString().trim();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td style="font-family: monospace; font-size: 14px;">${escapeHtml(it.item_id)}</td>
+          <td>${escapeHtml(it.type)}</td>
+          <td>${escapeHtml(it.customer)}</td>
+          <td style="font-family: monospace; font-size: 14px;"><b>${escapeHtml(it.suggested_bin)}</b></td>
+          <td style="font-family: monospace; font-size: 14px;">${actualBin ? `<b>${escapeHtml(actualBin)}</b>` : `<span class="muted">—</span>`}</td>
+          <td>${btn}</td>
+          <td>${statusCellHTML(it)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    };
+    render('accepted-table', acceptedRows);
+    render('rejected-table', rejectedRows);
+
+    $$('#accepted-table .btn-mini, #rejected-table .btn-mini').forEach(b=>{
+      if (b.dataset.bound === '1') return;
+      b.dataset.bound = '1';
+      b.addEventListener('click', async ()=>{
+        const bin = b.dataset.bin || '';
+        await openBinModal(bin);
+      });
+    });
+
+    $$('#accepted-table .status-select, #rejected-table .status-select').forEach(s=>{
+      if (s.dataset.bound === '1') return;
+      s.dataset.bound = '1';
+      s.addEventListener('change', async ()=>handleStatusChange(s));
+    });
+  }
+
+  function uniqSorted(arr){
+    const s = new Set(arr.filter(x => (x ?? '').toString().trim() !== ''));
+    return Array.from(s).sort((a,b)=>a.toString().localeCompare(b.toString(), undefined, {numeric:true, sensitivity:'base'}));
+  }
+
+  function rebuildDropdownsPreserveSelection(){
+    const active = getActiveFilters();
+    const cols = ['idx','item_id','type','customer','production_date','production_time','suggested_bin','bin_details','status'];
+
+    const colValues = {};
+    cols.forEach(c => colValues[c] = []);
+
+    lastSuggestions.forEach((it, idx)=>{
+      const row = buildRowMap(it, idx);
+      cols.forEach(c => colValues[c].push(row[c]));
+    });
+
+    cols.forEach(col=>{
+      const sel = document.querySelector(`select.th-filter[data-col="${col}"]`);
+      if (!sel) return;
+
+      const selected = active[col] || '';
+      const values = uniqSorted(colValues[col]);
+
+      sel.innerHTML = `<option value="">All</option>` + values.map(v=>{
+        const ev = escapeHtml(v);
+        const sv = (v === selected) ? ' selected' : '';
+        return `<option value="${ev}"${sv}>${ev}</option>`;
+      }).join('');
+    });
+
+    $$('.th-filter').forEach(sel=>{
+      if (sel.dataset.bound === '1') return;
+      sel.dataset.bound = '1';
+      sel.addEventListener('change', ()=>applyTableFilters());
+    });
+
+    updateFilterStatus();
+  }
+
+  async function refreshUnassigned(){
+    const limitRaw = ($('#unassigned-limit').value || 'ALL').trim();
+    const limitParam = encodeURIComponent(limitRaw);
+
+    const [state, summary, sugg, statusResp, statusDetailsResp] = await Promise.all([
+      fetchJSON(API_STATE),
+      fetchJSON(API_UNASSIGNED_SUMMARY),
+      fetchJSON(`${API_UNASSIGNED_SUGGEST}?limit=${limitParam}`),
+      fetchJSON(API_STATUS_LIST),
+      fetchJSON(API_STATUS_DETAILS)
+    ]);
+
+    const newItems = (sugg && typeof sugg.new_items !== 'undefined') ? Number(sugg.new_items) : 0;
+
+    $('#unassigned-summary').innerHTML = `
+      <span class="badge-stat">Unassigned Items: ${summary.unassigned_rows}</span>
+      <span class="badge-stat">New Items Added: ${newItems}</span>
+      <span class="badge-stat">Total Returned: ${sugg.returned}</span>
+    `;
+
+    // ✅ Render AI Summary properly parsing Gemini's Markdown bold (**) and bullets (*)
+    const aiBox = document.getElementById('allocAiSummary');
+    const aiText = document.getElementById('allocAiSummaryText');
+    if (sugg && sugg.ai_summary) {
+      aiBox.style.display = 'block';
+      
+      let formattedText = escapeHtml(sugg.ai_summary)
+        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: var(--text-primary); font-weight: 800;">$1</strong>')
+        .replace(/(?:\r\n|\r|\n)/g, '<br>')
+        .replace(/<br>\*\s+/g, '<br><span style="color:#1abc9c; margin-right:8px; font-size:16px; line-height:1;">•</span> ');
+      
+      if (formattedText.startsWith('* ')) {
+        formattedText = '<span style="color:#1abc9c; margin-right:8px; font-size:16px; line-height:1;">•</span> ' + formattedText.substring(2);
+      }
+      
+      aiText.innerHTML = formattedText;
+    } else {
+      aiBox.style.display = 'none';
+    }
+
+    let suggRows = (sugg && sugg.suggestions) ? sugg.suggestions : [];
+
+    statusMap = {};
+    (statusResp && statusResp.rows ? statusResp.rows : []).forEach(r=>{
+      const k = (r.item_id || '').toString().trim().toLowerCase();
+      if (!k) return;
+      statusMap[k] = {
+        status: r.status,
+        suggested_bin: r.suggested_bin,
+        followed: (r.followed === null || r.followed === undefined) ? null : Number(r.followed),
+        current_bin: r.current_bin,
+        note: r.note
+      };
+    });
+
+    suggRows = suggRows.map(it=>{
+      const k = (it.item_id || '').toString().trim().toLowerCase();
+      const s = statusMap[k];
+      return {
+        ...it,
+        status: s ? (s.status || '') : '',
+        followed: s ? s.followed : null,
+        note: s ? (s.note || '') : '',
+        actual_bin: s ? (s.current_bin || '') : ''
+      };
+    });
+
+    lastSuggestions = suggRows.filter(x=>!x.status);
+
+    let statusDetails = (statusDetailsResp && statusDetailsResp.rows) ? statusDetailsResp.rows : [];
+    const acceptedRows = statusDetails.filter(x=>x.status === 'Accepted');
+    const rejectedRows = statusDetails.filter(x=>x.status === 'Rejected');
+
+    renderStatusTables(acceptedRows, rejectedRows);
+
+    rebuildDropdownsPreserveSelection();
+    applyTableFilters();
+
+    log(`Unassigned refreshed: ${lastSuggestions.length} suggestion(s) loaded.`);
+  }
+
+  function setAuto(on){
+    autoOn = on;
+    $('#btn-toggle-auto').textContent = on ? 'Auto Refresh: ON (5m)' : 'Auto Refresh: OFF';
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    if (on){
+      autoTimer = setInterval(async ()=>{
+        try { await refreshUnassigned(); } catch(e){ log(`Auto refresh failed: ${e.message}`, 'err'); }
+      }, REFRESH_MS);
+    }
+  }
+
+  function clearFilters(){
+    $$('.th-filter').forEach(sel => sel.value = '');
+    applyTableFilters();
+    updateFilterStatus();
+  }
+
+  function showModal(on){
+    $('#bin-modal').style.display = on ? 'flex' : 'none';
+  }
+
+  function renderBinItems(items){
+    const tbody = $('#bin-items-table tbody');
+    tbody.innerHTML = '';
+    (items || []).forEach((it, i)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td style="font-family: monospace; font-size: 14px;">${escapeHtml(it.item_id)}</td>
+        <td>${escapeHtml(it.type)}</td>
+        <td>${escapeHtml(it.customer)}</td>
+        <td>${escapeHtml(it.grade)}</td>
+        <td>${escapeHtml(it.thickness_mm ?? '')}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function openBinModal(bin){
+    const b = (bin || '').trim();
+    if (!b) return;
+
+    $('#bin-modal-title').textContent = `Bin: ${b}`;
+    $('#bin-modal-sub').textContent = `Loading contents...`;
+    $('#bin-modal-empty').style.display = 'none';
+    renderBinItems([]);
+
+    showModal(true);
+
+    try{
+      const data = await fetchJSON(`${API_BIN_DETAILS}?bin=${encodeURIComponent(b)}`);
+      $('#bin-modal-sub').textContent =
+        `Items found: ${data.count} • Source: ${data.source === 'google_sheet' ? 'Google Sheet' : 'Database'}`;
+
+      if (!data.items || !data.items.length){
+        $('#bin-modal-empty').style.display = 'block';
+        $('#bin-modal-empty').textContent = `No items found in ${b}.`;
+      }else{
+        renderBinItems(data.items);
+      }
+    }catch(e){
+      $('#bin-modal-empty').style.display = 'block';
+      $('#bin-modal-empty').textContent = `Failed to load bin details: ${e.message}`;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    $('#btn-unassigned-refresh').addEventListener('click', async ()=>{
+      try{ await refreshUnassigned(); }catch(e){ log(`Refresh failed: ${e.message}`, 'err'); }
+    });
+
+    $('#btn-toggle-auto').addEventListener('click', ()=>{
+      setAuto(!autoOn);
+      log(`Auto refresh toggled to: ${autoOn ? 'ON' : 'OFF'}`);
+    });
+
+    $('#btn-clear-filters').addEventListener('click', ()=>{
+      clearFilters();
+      log('Table filters have been cleared.');
+    });
+
+    $('#bin-modal-close').addEventListener('click', ()=>showModal(false));
+    $('#bin-modal').addEventListener('click', (e)=>{
+      if (e.target && e.target.id === 'bin-modal') showModal(false);
+    });
+
+    try{
+      await refreshUnassigned();
+    }catch(e){
+      log(`Initial load failed: ${e.message}`, 'err');
+    }
+
+    setAuto(true);
+  });
+</script>
+{% endblock %}

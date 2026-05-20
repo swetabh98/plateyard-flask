@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Vehicle Sequencing • Jindal Yard{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root{
+    /* Mapped to Base.html */
+    --card: var(--surface);
+    --text: var(--text-primary);
+    --muted: var(--text-secondary);
+    --line: var(--surface-border);
+    --shadow: 0 10px 30px rgba(15,42,67,.10); 
+    --radius: 12px; 
+    --ring: 0 0 0 3px rgba(26,188,156,.14);
+    --good: #16a34a; --warn: #f59e0b; --bad: #ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+
+  .page-head{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:12px; flex-wrap:wrap;
+    margin-bottom:12px;
+  }
+  .page-head h1{
+    margin:0; font-size:22px; font-weight:800; color:var(--text);
+  }
+  .sub{
+    margin:6px 0 0; color:var(--muted);
+    font-size:13px; line-height:1.35; max-width:980px;
+  }
+
+  .controls{
+    display:flex; gap:10px; flex-wrap:wrap;
+    align-items:flex-end; justify-content:flex-end;
+  }
+  .ctl{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 12px;
+    min-width:210px;
+    box-shadow:var(--shadow);
+  }
+  .ctl label{
+    display:block; font-size:11px;
+    color:var(--muted); margin-bottom:6px;
+    font-weight:800;
+  }
+  .ctl input[type="number"], .ctl input[type="text"]{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:9px 10px;
+    outline:none;
+    background:var(--card);
+    color:var(--text);
+  }
+  .ctl small{
+    display:block;
+    margin-top:6px;
+    font-size:11px;
+    color:var(--muted);
+    font-weight:700;
+  }
+  .ctl .row{display:flex; align-items:center; gap:8px;}
+
+  .btn{
+    cursor:pointer;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--text);
+    padding:10px 12px;
+    font-weight:800;
+    box-shadow:var(--shadow);
+  }
+  .btn:hover{opacity:0.8;}
+  .btn.primary{
+    background:rgba(26,188,156,.12);
+    border-color:rgba(26,188,156,.35);
+  }
+  .btn.danger{
+    background:rgba(239,68,68,.10);
+    border-color:rgba(239,68,68,.30);
+  }
+
+  .meta{
+    margin:10px 0 14px;
+    color:var(--muted);
+    font-size:12px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .meta .chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:5px 10px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--card);
+    font-weight:800;
+    color:var(--text);
+  }
+
+  .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:12px;}
+  .card{
+    grid-column:span 12;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+  }
+  .cardHead{
+    padding:12px 14px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    border-bottom:1px solid var(--line);
+    background:var(--card);
+  }
+  .title{
+    font-weight:900; font-size:14px; margin:0;
+    display:flex; align-items:center; gap:10px;
+    color:var(--text);
+  }
+  .pill{
+    font-size:11px;
+    color:var(--muted);
+    border:1px solid var(--line);
+    padding:4px 8px;
+    border-radius:999px;
+    background:var(--card);
+    font-weight:800;
+    white-space:nowrap;
+  }
+  .pill.priorityPill{
+    color: var(--good);
+    border-color: rgba(22,163,74,.35);
+    background: rgba(22,163,74,.12);
+  }
+  .cardBody{padding:10px 14px 14px;}
+
+  .vehicle{
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+    margin-top:10px;
+    background:transparent;
+  }
+  .vehicleHead{
+    padding:10px 12px;
+    background:rgba(128,128,128,0.05);
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+    cursor:pointer;
+    user-select:none;
+  }
+  .kpi{font-size:12px; color:var(--muted); font-weight:700;}
+
+  .vehicleCard.collapsed .vehicleBody{ display:none; }
+  .vehChev{
+    width:26px; height:26px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--text);
+    font-weight:900;
+    background:var(--card);
+    flex:0 0 auto;
+    margin-top:2px;
+  }
+
+  .lpScroll{
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding-bottom:10px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .lpScroll::-webkit-scrollbar{ height:10px; }
+  .lpScroll::-webkit-scrollbar-thumb{ background:var(--line); border-radius:999px; }
+  .lpScroll::-webkit-scrollbar-track{ background:transparent; border-radius:999px; }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+    table-layout:auto;
+  }
+  th, td{padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--text);}
+  th{
+    font-weight:900; text-align:left; background:var(--card);
+    position: sticky; top: 0; z-index: 2;
+  }
+  tr:last-child td{border-bottom:none;}
+
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:3px 8px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    font-size:11px;
+    color:var(--muted);
+    background:var(--card);
+    font-weight:800;
+    white-space:normal;
+    max-width:100%;
+    line-height:1.2;
+    word-break:break-word;
+  }
+  .badge.good{color:#4ade80; border-color:rgba(22,163,74,.30);}
+  .badge.warn{color:#fbbf24; border-color:rgba(245,158,11,.35);}
+  .badge.bad{color:#f87171; border-color:rgba(239,68,68,.30);}
+
+  .statusCell{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    align-items:flex-start;
+  }
+  .statusCell .badge{ border-radius:10px; }
+
+  .empty{
+    padding:14px; color:var(--muted); font-size:13px;
+    border:1px dashed var(--line); border-radius:14px;
+    margin-top:10px; background:var(--card);
+  }
+
+  .lpCard .cardHead{ cursor:pointer; user-select:none; }
+  .lpToggle{ display:flex; align-items:flex-start; gap:10px; font-weight:900; color:var(--text); }
+  .chev{
+    width:26px; height:26px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--text);
+    font-weight:900;
+    background:var(--card);
+    flex:0 0 auto;
+    margin-top:2px;
+  }
+
+  .lpRight{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    align-items:flex-start;
+    justify-content:flex-end;
+  }
+
+  #lpModal {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: var(--nav-w);                 
+    width: calc(100% - var(--nav-w));   
+    background: var(--page-bg);
+    z-index: 4000;
+    display: none;
+    flex-direction: column;
+    animation: fadeIn 0.2s ease-out;
+  }
+  #lpModal.active { display: flex; }
+
+  .modal-nav {
+    height: 64px;
+    background: var(--card);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    box-shadow: var(--shadow);
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-close {
+    background: rgba(128,128,128,0.1);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 300;
+  }
+  .modal-close:hover { opacity:0.8; }
+  .modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @media(min-width:1100px){ .card{grid-column:span 6;} }
+
+  details.advancedCtl{
+    background: var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 12px;
+    box-shadow:var(--shadow);
+    max-width: 980px;
+  }
+  details.advancedCtl > summary{
+    cursor:pointer;
+    font-weight:900;
+    color: var(--text);
+    list-style:none;
+    outline:none;
+    user-select:none;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  details.advancedCtl > summary::-webkit-details-marker{ display:none; }
+  details.advancedCtl > summary:before{
+    content:"▸";
+    display:inline-flex;
+    width:22px;
+    height:22px;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--card);
+    color:var(--text);
+    font-weight:900;
+  }
+  details.advancedCtl[open] > summary:before{ content:"▾"; }
+  .ctlRow{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    justify-content:flex-end;
+    margin-top:10px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1>Vehicle Sequencing</h1>
+      <p class="sub">
+        Suggestions scan bin stacks and select items that are <b style="color:var(--text);">Finished Good (FG)</b> and <b style="color:var(--text);">FI Released</b>.
+        <b style="color:var(--text);">Each vehicle is locked to one customer</b> (no mixed-customer loads).
+        <b style="color:var(--text);">No routing:</b> vehicle shows <b style="color:var(--text);">items list</b> to load at the selected loading point.
+        <br>
+        <span style="color:var(--muted); font-weight:800;">
+          Lock workflow: click <b style="color:var(--text);">Lock</b> to reserve items (prevents double assignment). Click <b style="color:var(--text);">Release</b> to free.
+        </span>
+      </p>
+    </div>
+
+    <div class="controls">
+      <details class="advancedCtl" id="advancedCtl">
+        <summary>Advanced filters</summary>
+
+        <div class="ctlRow">
+          <div class="ctl">
+            <label>Customer (optional)</label>
+            <input id="customerFilter" type="text" placeholder="Type customer name (exact)" />
+            <small>Press Enter to refresh</small>
+          </div>
+
+          <div class="ctl">
+            <label>Max bins considered / point</label>
+            <input id="maxBins" type="number" min="10" max="200000" placeholder="Auto (recommended)" />
+            <small>Leave empty to let backend decide</small>
+          </div>
+        </div>
+      </details>
+
+      <button class="btn primary" id="btnRefresh">Refresh</button>
+      <button class="btn" id="btnCopy">Copy CSV</button>
+    </div>
+  </div>
+
+  <div class="meta" id="metaLine">
+    <span class="chip">Loading…</span>
+  </div>
+
+  <div class="grid" id="cards"></div>
+
+  <div id="lpModal">
+    <div class="modal-nav">
+      <h2 id="modalTitle" style="margin:0; font-size:18px;">Loading Point Details</h2>
+      <button class="modal-close" id="btnCloseModal">&times;</button>
+    </div>
+    <div class="modal-content" id="modalContent"></div>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/vehicle_sequencing.js"></script>
+{% endblock %}

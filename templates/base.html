@@ -1,0 +1,168 @@
+{# templates/base.html #}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <title>{% block title %}Jindal Yard{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="view-transition" content="same-origin" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Plus Jakarta Sans (Base & Material 3) -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,700&display=swap" rel="stylesheet">
+  <!-- JetBrains Mono (Industrial Neo) -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" defer></script>
+
+  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js" defer></script>
+
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/chatbot.css">
+
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+
+  <!-- Mobile nav hamburger (hidden on desktop via CSS) -->
+  <button id="mobileNavToggle" class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-controls="mainNav" aria-expanded="false" title="Open Menu">
+    <i data-lucide="menu" style="width:20px;height:20px;"></i>
+  </button>
+  <!-- Mobile nav overlay backdrop -->
+  <div id="navOverlay" class="nav-overlay" aria-hidden="true"></div>
+
+  <nav id="mainNav" role="navigation" aria-label="Main Navigation">
+
+    <div class="nav-brand">
+      <img src="/static/jindal-logo.png" alt="Jindal Steel logo" />
+      <div class="nav-brand-text">
+        <span class="nav-brand-title text-gradient">Jindal Steel</span>
+        <span class="nav-brand-sub">Yard&nbsp;Manager</span>
+      </div>
+      <button id="navToggle" class="magnetic" type="button" aria-label="Collapse or Expand Navigation" title="Toggle Nav">
+        <i data-lucide="panel-left-close" style="width:16px;height:16px;"></i>
+      </button>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <span class="nav-section">Workspace</span>
+
+    <a href="{{ url_for('dashboard') }}"
+       class="{{ 'active' if request.path.startswith('/dashboard') else '' }}"
+       aria-label="Dashboard">
+      <span class="nav-ico"><i data-lucide="layout-dashboard"></i></span>
+      <span class="nav-label">Dashboard</span>
+    </a>
+
+    <a href="{{ url_for('index') }}"
+       class="{{ 'active' if request.path == '/' or request.path.startswith('/index') else '' }}"
+       aria-label="2D Layout">
+      <span class="nav-ico"><i data-lucide="map"></i></span>
+      <span class="nav-label">2D Layout</span>
+    </a>
+
+    <a href="{{ url_for('yard_3d_view') }}"
+       class="{{ 'active' if request.path.startswith('/3d') or request.path.startswith('/yard_3d') else '' }}"
+       aria-label="3D Layout">
+      <span class="nav-ico"><i data-lucide="box"></i></span>
+      <span class="nav-label">3D Layout</span>
+    </a>
+
+    <a href="{{ url_for('navigate_page') }}"
+       class="{{ 'active' if request.path.startswith('/navigate') else '' }}"
+       aria-label="Navigate">
+      <span class="nav-ico"><i data-lucide="navigation"></i></span>
+      <span class="nav-label">Navigate</span>
+    </a>
+
+    <div class="nav-divider"></div>
+    <span class="nav-section">Operations</span>
+
+    <a href="{{ url_for('allocator') }}"
+       class="{{ 'active' if request.path.startswith('/allocator') else '' }}"
+       aria-label="Bin Allocator">
+      <span class="nav-ico"><i data-lucide="package"></i></span>
+      <span class="nav-label">Bin Allocator</span>
+    </a>
+
+    <a href="{{ url_for('vehicle_sequencing') }}"
+       class="{{ 'active' if request.path.startswith('/vehicle_sequencing') else '' }}"
+       aria-label="Vehicle Sequencing">
+      <span class="nav-ico"><i data-lucide="truck"></i></span>
+      <span class="nav-label">Vehicle Sequencing</span>
+    </a>
+
+    <a href="{{ url_for('transactions_page') }}"
+       class="{{ 'active' if request.path.startswith('/transactions') else '' }}"
+       aria-label="Transaction History">
+      <span class="nav-ico"><i data-lucide="receipt"></i></span>
+      <span class="nav-label">Transaction History</span>
+    </a>
+
+    <a href="{{ url_for('qr_code_generator_page') }}"
+       class="{{ 'active' if request.path.startswith('/qr-code-generator') or request.path.startswith('/qr/batch/') else '' }}"
+       aria-label="QR Code Generator">
+      <span class="nav-ico"><i data-lucide="qr-code"></i></span>
+      <span class="nav-label">QR Code Generator</span>
+    </a>
+
+    {% if session.get('is_admin') %}
+    <div class="nav-divider"></div>
+    <span class="nav-section">System</span>
+    <a href="/admin" class="{{ 'active' if request.path.startswith('/admin') else '' }}"
+       aria-label="Admin Panel">
+      <span class="nav-ico"><i data-lucide="shield-check"></i></span>
+      <span class="nav-label">Admin</span>
+    </a>
+    {% endif %}
+
+    <div class="nav-divider"></div>
+
+    <!-- ── Theme Picker ── -->
+    <div class="theme-toggle-wrap">
+      <button id="themePickerBtn" type="button" aria-label="Choose theme" title="Change Theme">
+        <span class="nav-ico" id="themeBtnIcon"><i data-lucide="sun"></i></span>
+        <span class="theme-btn-label nav-label" id="themeBtnLabel">Base Light</span>
+        <i data-lucide="chevron-down" class="theme-chevron"></i>
+      </button>
+      <div class="theme-dropdown" id="themeDropdown" role="listbox" aria-label="Theme options">
+        <!-- Populated by main.js -->
+      </div>
+    </div>
+
+    <form action="{{ url_for('logout') }}" method="post" class="nav-logout">
+      <button type="submit" aria-label="Logout">
+        <span class="nav-ico"><i data-lucide="log-out"></i></span>
+        <span class="nav-label">Logout {{ session.get('user_name') or '' }}</span>
+      </button>
+    </form>
+
+  </nav>
+
+  <main class="wrap" id="mainContent">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Bottom Edge-to-Edge Marquee ── -->
+  <div id="made-by-marquee" aria-hidden="true">
+    <div class="track">
+      <div class="marquee-inner" id="marqueeInner">
+        <div class="marquee-segment" id="marqueeSegment">Loading yard summary…</div>
+        <div class="marquee-segment" id="marqueeSegmentClone" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/main.js?v=login-persist-1" defer></script>
+
+  {% include 'chatbot.html' %}
+  <script src="/static/chatbot.js"></script>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

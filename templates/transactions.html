@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction History{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root{
+    /* Mapped to Base.html */
+    --card: var(--surface);
+    --muted: var(--text-secondary);
+    --shadow: 0 10px 30px rgba(15,42,67,.10); 
+    --br: 12px;
+  }
+
+  /* Main */
+  #main{ padding:0; }
+  .panel{ background:var(--card); border:1px solid var(--surface-border); border-radius:var(--br); padding:12px; box-shadow:var(--shadow); }
+
+  /* Filters */
+  .filters{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px;
+    background:var(--surface); border:1px solid var(--surface-border);
+    border-radius:10px; padding:10px;
+  }
+  .filters label{ font:700 12px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--text-primary); display:flex; gap:6px; align-items:center; }
+  .filters select,.filters input[type="date"]{
+    appearance:none; border:1px solid var(--surface-border); border-radius:8px; padding:6px 8px; background:var(--surface);
+    font:600 13px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--text-primary);
+  }
+  .filters select:focus,.filters input[type="date"]:focus{ outline:2px solid rgba(26,188,156,.45); outline-offset:1px; }
+  .btn{ border:1px solid var(--surface-border); background:var(--surface); color:var(--text-primary); border-radius:8px; padding:6px 12px; font:600 13px/1 system-ui; cursor:pointer; }
+  .btn:hover{ opacity:0.8; }
+
+  /* Table */
+  .table-wrap{ max-height:62vh; overflow:auto; border-radius:10px; border:1px solid var(--surface-border); }
+  table{ width:100%; border-collapse:collapse; background:transparent; }
+  th, td{ padding:10px 12px; border-bottom:1px solid var(--surface-border); font-size:13px; text-align:left; color:var(--text-primary); }
+  th{ background:var(--surface); position:sticky; top:0; z-index:1; color:var(--text-primary); font-weight:700; }
+  tfoot td{
+    background:var(--surface); font-weight:800; color:var(--text-primary); border-top:1px solid var(--surface-border);
+    position:sticky; bottom:0; z-index:1;
+  }
+  .muted{ color:var(--muted); }
+  .badge{ display:inline-block; padding:2px 6px; border-radius:6px; font:700 11px/1 system-ui;
+    background:rgba(26,188,156,.15); color:#1abc9c; border:1px solid rgba(26,188,156,.35); margin-right:6px; }
+
+  /* Summaries */
+  .summaries{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; }
+  .sum-card{ background:var(--surface); border:1px solid var(--surface-border); border-radius:10px; box-shadow:var(--shadow); padding:12px; }
+  .sum-title{ margin:0 0 8px 0; font-weight:800; color:var(--text-primary); }
+  .sum-grid{ display:grid; grid-template-columns: 140px 1fr; gap:6px; font-size:13px; color:var(--text-primary); }
+  .chip{ display:inline-block; padding:2px 8px; border-radius:9999px; border:1px solid var(--surface-border); background:transparent; font-weight:700; }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div id="main">
+    <div class="panel">
+      <div class="filters">
+        <label>Action
+          <select id="fAction">
+            <option value="all">All</option>
+            <option value="added">Added</option>
+            <option value="moved">Moved</option>
+            <option value="edited">Edited</option>
+            <option value="dispatched">Dispatched</option>
+          </select>
+        </label>
+
+        <label>Type
+          <select id="fType">
+            <option value="all">All</option>
+            <option value="Plate">Plate</option>
+            <option value="Coil">Coil</option>
+          </select>
+        </label>
+
+        <label>Edited Only
+          <select id="fEdited">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </label>
+        <label>From <input type="date" id="fStart"></label>
+        <label>To <input type="date" id="fEnd"></label>
+        <button type="button" id="apply" class="btn">Apply</button>
+        <button type="button" id="reset" class="btn">Reset</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="txTable">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Aging (hrs)</th>
+              <th>Item</th>
+              <th>Weight (t)</th>
+              <th>Customer</th>
+              <th>PO No.</th>
+              <th>Transport</th>
+              <th>Action</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Edited</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <td></td>
+              <td></td>
+              <td style="text-align:right;">Total:</td>
+              <td id="weightTotalCell">0 t</td>
+              <td colspan="7"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="summaries">
+        <div class="sum-card">
+          <h4 class="sum-title">Plates Summary</h4>
+          <div class="sum-grid">
+            <div>Total Weight</div><div><span id="plateTotal" class="chip">0 t</span></div>
+            <div>Oldest Added</div><div id="plateOldest">—</div>
+            <div>Latest Added</div><div id="plateLatest">—</div>
+          </div>
+        </div>
+        <div class="sum-card">
+          <h4 class="sum-title">Coils Summary</h4>
+          <div class="sum-grid">
+            <div>Total Weight</div><div><span id="coilTotal" class="chip">0 t</span></div>
+            <div>Oldest Added</div><div id="coilOldest">—</div>
+            <div>Latest Added</div><div id="coilLatest">—</div>
+          </div>
+        </div>
+      </div>
+
+      <p id="emptyNote" class="muted" style="display:none; margin-top:10px;">No transactions match your filters.</p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script type="module">
+  const els = {
+    action: document.getElementById('fAction'),
+    type:   document.getElementById('fType'),
+    edited: document.getElementById('fEdited'),
+    start:  document.getElementById('fStart'),
+    end:    document.getElementById('fEnd'),
+    apply:  document.getElementById('apply'),
+    reset:  document.getElementById('reset'),
+    tbody:  document.querySelector('#txTable tbody'),
+    empty:  document.getElementById('emptyNote'),
+    weightTotalCell: document.getElementById('weightTotalCell'),
+    plateTotal: document.getElementById('plateTotal'),
+    coilTotal: document.getElementById('coilTotal'),
+    plateOldest: document.getElementById('plateOldest'),
+    plateLatest: document.getElementById('plateLatest'),
+    coilOldest: document.getElementById('coilOldest'),
+    coilLatest: document.getElementById('coilLatest'),
+  };
+
+  const cap = s => String(s||'').replace(/_/g,' ').replace(/\b\w/g,m=>m.toUpperCase());
+  const asNum = v => {
+    const n = parseFloat(String(v ?? '').toString().replace(/[, ]+/g,''));
+    return Number.isFinite(n) ? n : null;
+  };
+  const fmtWhen = iso => { try { return new Date(iso).toLocaleString(); } catch { return iso || ''; } };
+
+  const parseMaybeJSON = (v)=> {
+    if (!v) return null;
+    if (typeof v === 'object') return v;
+    try { return JSON.parse(v); } catch { return null; }
+  };
+  const pickBlob = (tx)=> parseMaybeJSON(tx.after_snapshot) || parseMaybeJSON(tx.before_snapshot) || {};
+
+  function isDispatched(tx){
+    const act = String(tx.action||'').toLowerCase();
+    const blob = pickBlob(tx) || {};
+    const st   = String(tx.status || blob.status || '').toLowerCase();
+    return (act === 'removed') || ((act === 'edited' || act === 'edit') && st === 'dispatched');
+  }
+
+  function agingHours(tx){
+    if (typeof tx.age_hours === 'number' && isFinite(tx.age_hours)) {
+      return String(tx.age_hours);
+    }
+    let baseIso = tx.age_start || tx.timestamp;
+    if (!baseIso) {
+      const b = pickBlob(tx) || {};
+      baseIso = b.added_at || b.created_at || b["Created On"] || b.createdOn || null;
+    }
+    if (!baseIso) return '';
+    const base = Date.parse(baseIso);
+    if (!Number.isFinite(base)) return '';
+    const hrs = Math.floor((Date.now() - base) / (1000*60*60));
+    return hrs >= 0 ? String(hrs) : '';
+  }
+
+  function weightOf(tx){
+    const flat = asNum(tx.weight);
+    if (flat !== null) return flat;
+    const b = pickBlob(tx) || {};
+    const snap = asNum(b.weight);
+    if (snap !== null) return snap;
+    return null;
+  }
+
+  function displayAction(tx){
+    const act = String(tx.action||'').toLowerCase();
+    if (isDispatched(tx)) return 'Dispatched';
+    if (act === 'added' || act === 'add') return 'Added';
+    if (act === 'moved' || act === 'edit' || act === 'edited') return 'Moved';
+    return cap(tx.action||'');
+  }
+
+  function displayEdited(tx){
+    const act = String(tx.action||'').toLowerCase();
+    if (act === 'moved' || act === 'edit' || act === 'edited') return 'Yes';
+    return 'No';
+  }
+
+  function rowMarkup(tx){
+    const wt = weightOf(tx);
+    const blob = pickBlob(tx) || {};
+    const po = tx.bill || tx.bill_no || blob.bill || blob.bill_no ||
+               tx.po || tx.po_no || blob.po || blob.po_no || '';
+    const tr = tx.transport || blob.transport || blob.dispatch_mode || '';
+    return `<tr>
+      <td>${fmtWhen(tx.age_start || tx.timestamp)}</td>
+      <td>${agingHours(tx)}</td>
+      <td><span class="badge">${tx.item_type}</span>${tx.item_id}</td>
+      <td>${wt === null ? '' : wt}</td>
+      <td>${tx.customer ?? ''}</td>
+      <td>${po}</td>
+      <td>${tr}</td>
+      <td>${displayAction(tx)}</td>
+      <td>${tx.source_bin ?? ''}</td>
+      <td>${tx.dest_bin ?? ''}</td>
+      <td>${displayEdited(tx)}</td>
+    </tr>`;
+  }
+
+  function summarize(data){
+    const nonDispatched = data.filter(r => !isDispatched(r));
+
+    const numOr0 = v => (v === null ? 0 : v);
+    const sum = arr => arr.reduce((s,r)=> s + numOr0(weightOf(r)), 0);
+    const fmtT = n => (Math.round(n*1000)/1000) + ' t';
+
+    els.weightTotalCell.textContent = fmtT(sum(nonDispatched));
+
+    const plates = nonDispatched.filter(r => String(r.item_type).toLowerCase() === 'plate');
+    const coils  = nonDispatched.filter(r => String(r.item_type).toLowerCase() === 'coil');
+
+    const addedOnly = arr => arr.filter(r => String(r.action).toLowerCase() === 'added');
+    const byStart = r => new Date(r.age_start || r.timestamp);
+    const oldest = arr => arr.length ? [...arr].sort((a,b)=> byStart(a) - byStart(b))[0] : null;
+    const latest = arr => arr.length ? [...arr].sort((a,b)=> byStart(b) - byStart(a))[0] : null;
+
+    els.plateTotal.textContent = fmtT(sum(plates));
+    const pOld = oldest(addedOnly(plates));
+    const pLat = latest(addedOnly(plates));
+    els.plateOldest.textContent = pOld ? `${fmtWhen(pOld.age_start || pOld.timestamp)} — ${pOld.item_id}` : '—';
+    els.plateLatest.textContent = pLat ? `${fmtWhen(pLat.age_start || pLat.timestamp)} — ${pLat.item_id}` : '—';
+
+    els.coilTotal.textContent = fmtT(sum(coils));
+    const cOld = oldest(addedOnly(coils));
+    const cLat = latest(addedOnly(coils));
+    els.coilOldest.textContent = cOld ? `${fmtWhen(cOld.age_start || cOld.timestamp)} — ${cOld.item_id}` : '—';
+    els.coilLatest.textContent = cLat ? `${fmtWhen(cLat.age_start || cLat.timestamp)} — ${cLat.item_id}` : '—';
+  }
+
+  async function load(){
+    const q = new URLSearchParams();
+
+    const actSel = els.action.value;
+    if (actSel !== 'all') {
+      if (actSel === 'dispatched') q.set('action', 'removed');
+      else q.set('action', actSel);
+    }
+
+    if (els.type.value   !== 'all') q.set('item_type', els.type.value);
+    if (els.edited.value === '1')   q.set('edited', '1');
+    if (els.start.value)            q.set('start', els.start.value);
+    if (els.end.value)              q.set('end', els.end.value);
+
+    const res = await fetch(`/api/transactions?${q.toString()}`, {headers:{'X-Requested-With':'fetch'}});
+    let data = await res.json();
+
+    if (actSel === 'dispatched') data = data.filter(isDispatched);
+
+    els.tbody.innerHTML = data.map(rowMarkup).join('');
+    els.empty.style.display = data.length ? 'none' : 'block';
+
+    summarize(data);
+  }
+
+  els.apply.addEventListener('click', load);
+  els.reset.addEventListener('click', ()=> {
+    els.action.value='all'; els.type.value='all';
+    els.edited.value='0'; els.start.value=''; els.end.value='';
+    load();
+  });
+
+  load();
+</script>
+{% endblock %}

@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="/static/yard_3d_view.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.module.js",
+    "three/examples/jsm/controls/OrbitControls": "https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/controls/OrbitControls.js",
+    "three/examples/jsm/renderers/CSS2DRenderer": "https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/renderers/CSS2DRenderer.js"
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div id="canvas-container"></div>
+<div id="tooltip" role="tooltip" aria-hidden="true"></div>
+
+<!-- ─── FILTERS BAR ─────────────────────────────────────────── -->
+<div id="filters" class="compact-panel">
+  <div class="filters-head">
+    <div class="filters-title">Filters &amp; Tools</div>
+    <button id="filtersToggle" class="modern-icon-btn" type="button" title="Collapse / Expand Filters">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M18 15l-6-6-6 6"/>
+      </svg>
+    </button>
+  </div>
+
+  <div id="filtersBody">
+    <!-- Row 1: Toggles + Dropdowns -->
+    <div class="filters-row row-primary">
+      <div class="toggle-group">
+        <label class="modern-toggle">
+          <input type="checkbox" id="showLabels" />
+          <span>Labels</span>
+        </label>
+        <label class="modern-toggle">
+          <input type="checkbox" id="showShed" />
+          <span>Shed</span>
+        </label>
+        <label class="modern-toggle">
+          <input type="checkbox" id="topDownToggle" />
+          <span>Top-Down</span>
+        </label>
+      </div>
+
+      <div class="divider-vert"></div>
+
+      <label class="filter-lbl">
+        <span>Status</span>
+        <select id="statusFilter" multiple size="1" class="modern-input">
+          <option value="all">All</option>
+          <option value="finished good">Finished Good (FG)</option>
+          <option value="wip">Work In Progress (WIP)</option>
+          <option value="gfa">Good for Availability (GFA)</option>
+          <option value="psfs">Prime Stock For Sale (PSFS)</option>
+          <option value="ready for dispatch">Ready for Dispatch</option>
+          <option value="rejected">Rejected</option>
+          <option value="others">Others</option>
+        </select>
+      </label>
+
+      <label class="filter-lbl">
+        <span>FI Status</span>
+        <select id="fiRelFilter" multiple size="1" class="modern-input">
+          <option value="all">All</option>
+        </select>
+      </label>
+
+      <label class="filter-lbl">
+        <span>SBU Status</span>
+        <select id="sbuRelFilter" multiple size="1" class="modern-input">
+          <option value="all">All</option>
+        </select>
+      </label>
+
+      <label class="filter-lbl">
+        <span>Customer</span>
+        <select id="customerFilter" multiple size="1" class="modern-input">
+          <option value="all">All</option>
+        </select>
+      </label>
+
+      <label class="filter-lbl">
+        <span>Customer City</span>
+        <select id="customerCityFilter" multiple size="1" class="modern-input">
+          <option value="all">All</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Row 2: Search + Tools -->
+    <div class="filters-row row-secondary">
+      <div class="search-wrap">
+        <input id="searchIds" placeholder="Search IDs (e.g. 001 002)" class="modern-input" />
+        <button id="searchBtn" class="modern-btn primary">Find</button>
+        <button id="applyBtn" class="modern-btn primary-alt">Apply</button>
+        <button id="resetBtn" class="modern-btn danger">Reset</button>
+      </div>
+
+      <div class="divider-vert"></div>
+
+      <div class="tools-group">
+        <button id="mixedLotBtn" class="modern-btn warning" type="button" title="Show mixed customer bins">
+          Mixed Lot
+        </button>
+        <button id="bayFocusBtn" class="modern-btn secondary" type="button">
+          Focus Bay
+        </button>
+
+        <div id="materialStatusDropdownWrap" class="dropdown-wrap">
+          <button id="materialStatusBtn" class="modern-btn secondary" type="button">
+            <span>Material Status</span>
+            <span id="materialStatusBtnBadge" class="badge"></span>
+            <span class="chevron">▼</span>
+          </button>
+          <div id="materialStatusDropdown" class="modern-dropdown">
+            <div class="dropdown-header">
+              <span>Material Status</span>
+              <button id="materialStatusClearBtn" type="button" class="clear-btn modern-btn danger mini">Clear</button>
+            </div>
+            <div id="materialStatusOptionsList" class="dropdown-scroll-body"></div>
+          </div>
+        </div>
+        <input type="checkbox" id="materialStatusToggle" style="display:none;" />
+      </div>
+
+      <div class="focus-chip-container">
+        <span id="bayFocusActiveChip" class="focus-chip" style="display:none;">
+          Focused: <strong id="bayFocusActiveLabel"></strong>
+          <button id="bayFocusCloseBtn" type="button" title="Close Focus" class="close-chip-btn">✕</button>
+        </span>
+      </div>
+
+      <!-- Hidden filters preserved for JS -->
+      <label style="display:none;" aria-hidden="true">
+        <select id="topStackFilter" multiple size="1">
+          <option value="all">All</option>
+          <option value="fg_fi">FG with FI</option>
+          <option value="fg_fi2">FG with FI(2)</option>
+        </select>
+      </label>
+      <label style="display:none;" aria-hidden="true">
+        <select id="dateFilter" multiple size="1">
+          <option value="all">All</option>
+        </select>
+      </label>
+      <div id="customRange" style="display:none;" aria-hidden="true">
+        <input type="date" id="startDate"><input type="date" id="endDate">
+      </div>
+    </div>
+
+    <!-- Bay Focus Panel -->
+    <div id="bayFocusPanel" class="focus-panel" style="display:none;">
+      <div class="focus-panel-controls">
+        <label style="font-size:12px;font-weight:600;color:var(--text-secondary);">Select Bay:</label>
+        <select id="bayFocusSelect" class="modern-input"></select>
+        <button id="bayFocusApplyBtn" type="button" class="modern-btn success">Apply</button>
+        <button id="bayFocusCancelBtn" type="button" class="modern-btn secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── COLOR LEGEND (Floating) ───────────────────────────── -->
+<div id="color-legend-box" class="right-panel floating-box">
+  <div class="panel-hdr">
+    <span>Color Legend</span>
+    <button id="colorLegendClose" class="modern-icon-btn" type="button" title="Close">✕</button>
+  </div>
+  <div class="panel-scroll-body" id="colorLegendBody">
+    <div class="cl-muted">Loading…</div>
+  </div>
+</div>
+
+<!-- ─── BOTTOM LEGEND / TIMELINE BAR ─────────────────────── -->
+<div id="tools-card" class="compact-panel bottom-panel">
+  <div id="legendToggle" class="legend-toggle" role="button" tabindex="0" aria-label="Toggle Legends and Timeline">
+    <span>Legends &amp; Timeline</span>
+    <small id="legendToggleHint">▲</small>
+  </div>
+  <div class="legend-content">
+    <div class="filters-row">
+      <label class="modern-toggle">
+        <input type="checkbox" id="statusColorsToggle" checked>
+        <span>Status Colors</span>
+      </label>
+      <div class="divider-vert"></div>
+      <label class="filter-lbl">
+        <span>Timeline</span>
+        <input type="date" id="timeline" class="modern-input">
+      </label>
+      <button id="timelineClear" class="modern-btn secondary">Clear</button>
+    </div>
+    <div id="legendRow" class="legend-row"></div>
+  </div>
+</div>
+
+<!-- ─── DETAILS PANEL (Customer-wise) ────────────────────── -->
+<div id="search-details" class="right-panel full-height-panel" aria-live="polite">
+  <div class="panel-hdr">
+    <span>Details (Customer-wise)</span>
+    <div class="panel-actions">
+      <span class="muted" id="detailsCount"></span>
+      <button id="detailsExportBtn" class="modern-btn success" type="button">Export</button>
+      <button id="detailsCloseBtn" class="modern-btn secondary" type="button">Close</button>
+    </div>
+  </div>
+  <div id="search-details-body" class="panel-scroll-body"></div>
+</div>
+
+<!-- ─── MINI DETAILS PANEL ───────────────────────────────── -->
+<div id="search-mini-details" class="right-panel floating-box" aria-live="polite">
+  <div class="panel-hdr">
+    <span id="miniTitle">Plate/Coil Details</span>
+    <button id="miniCloseBtn" class="modern-icon-btn" type="button" title="Close">✕</button>
+  </div>
+  <div class="panel-scroll-body" id="search-mini-body"></div>
+</div>
+
+<!-- ─── MIXED LOT PANEL ──────────────────────────────────── -->
+<div id="mixed-lot-panel" class="right-panel full-height-panel" aria-live="polite">
+  <div class="panel-hdr">
+    <span>Mixed Lot (Bin-wise)</span>
+    <div class="panel-actions">
+      <span class="muted" id="mixedLotCount"></span>
+      <button id="mixedLotExportBtn" class="modern-btn success" type="button">Export</button>
+      <button id="mixedLotCloseBtn" class="modern-btn secondary" type="button">Close</button>
+    </div>
+  </div>
+  <div id="mixed-lot-body" class="panel-scroll-body"></div>
+</div>
+
+<!-- ─── UI OVERLAY — NavCube ─────────────────────────────── -->
+<div id="ui-overlay" aria-hidden="false">
+  <div class="ui-card">
+    <canvas id="navcube" width="100" height="100"
+      title="Drag to orbit · Click ring for Top/Front/Left/Right · Click cube for Iso · Double-click for Reset">
+    </canvas>
+  </div>
+</div>
+
+<!-- ─── DISPATCH DRAWER ──────────────────────────────────── -->
+<button id="dispatchDrawerBtn" class="modern-btn primary floating-action" title="Open dispatch suggestions">
+  <span class="mono">🚚</span> Dispatch
+</button>
+
+<div id="dispatchBackdrop" aria-hidden="true"></div>
+
+<div id="dispatchDrawer" class="modern-drawer" aria-hidden="true">
+  <div class="drawer-header">
+    <h3>
+      Dispatch Suggestions
+      <span id="dsCount" class="muted" style="font-size:13px;font-weight:500;"></span>
+    </h3>
+    <div class="right-actions">
+      <button id="dispatchExportExcelBtn" class="modern-btn success">Export</button>
+      <button id="dispatchNotifyBtn" class="modern-btn warning icon-only" title="Notify">🔔</button>
+      <button id="dispatchCloseBtn" class="modern-btn secondary icon-only" title="Close">✕</button>
+    </div>
+  </div>
+
+  <div class="drawer-body">
+    <!-- AI Summary -->
+    <div id="dsAiSummary" class="ai-summary">
+      <div class="ai-summary-title">✨ AI Yard Manager Summary</div>
+      <div id="dsAiSummaryText">Generating insights…</div>
+    </div>
+
+    <!-- Customer Search -->
+    <div class="ds-searchbar-container">
+      <div class="ds-searchbar">
+        <input id="dsCustomerSearch" class="modern-input" type="text"
+          placeholder="Search customer…" autocomplete="off" />
+        <button id="dsCustomerSearchBtn" class="modern-btn primary" type="button">Search</button>
+        <button id="dsCustomerClearBtn" class="modern-btn danger" type="button">Clear</button>
+      </div>
+      <div id="dsCustomerDropdown">
+        <div id="dsCustomerDropdownList" class="ds-dd" role="listbox"></div>
+      </div>
+    </div>
+
+    <!-- Cards Container -->
+    <div id="dsBody" class="ds-cards-container"></div>
+  </div>
+</div>
+
+<!-- Theme toggle is provided globally by base.html to avoid duplicate IDs. -->
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script>
+  const layout_raw    = {{ layout | tojson }};
+  const assigned_bins = {{ assigned_bins | tojson }};
+</script>
+<script>
+  /* ── Viewport-safe dropdown positioning for floating filter/dropdown UIs ── */
+  (function () {
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(value, max));
+    }
+
+    function placeFixedDropdown(anchor, dropdown, opts) {
+      if (!anchor || !dropdown) return;
+      opts = opts || {};
+
+      var gap = opts.gap || 8;
+      var minWidth = opts.minWidth || anchor.offsetWidth || 260;
+      var maxWidth = Math.min(opts.maxWidth || 360, window.innerWidth - 24);
+      var r = anchor.getBoundingClientRect();
+      var width = clamp(Math.max(minWidth, r.width), 240, maxWidth);
+
+      var left = r.left;
+      if (left + width + 12 > window.innerWidth) {
+        left = r.right - width;
+      }
+      left = clamp(left, 12, window.innerWidth - width - 12);
+
+      var top = r.bottom + gap;
+      var availableBelow = window.innerHeight - top - 12;
+      var preferredHeight = opts.maxHeight || 320;
+      var maxHeight = Math.min(preferredHeight, Math.max(160, availableBelow));
+
+      if (availableBelow < 180 && r.top > availableBelow) {
+        maxHeight = Math.min(preferredHeight, Math.max(160, r.top - gap - 12));
+        top = Math.max(12, r.top - gap - maxHeight);
+      }
+
+      dropdown.style.position = 'fixed';
+      dropdown.style.top = Math.round(top) + 'px';
+      dropdown.style.left = Math.round(left) + 'px';
+      dropdown.style.right = 'auto';
+      dropdown.style.width = Math.round(width) + 'px';
+      dropdown.style.maxHeight = Math.round(maxHeight) + 'px';
+    }
+
+    function positionMaterialStatusDropdown() {
+      var btn = document.getElementById('materialStatusBtn');
+      var dd  = document.getElementById('materialStatusDropdown');
+      if (!btn || !dd || !dd.classList.contains('open')) return;
+      placeFixedDropdown(btn, dd, { minWidth: 280, maxWidth: 360, maxHeight: 420 });
+    }
+
+    function positionDispatchCustomerDropdown() {
+      var input = document.getElementById('dsCustomerSearch');
+      var list  = document.getElementById('dsCustomerDropdownList');
+      if (!input || !list) return;
+      var isOpen = list.classList.contains('open') || window.getComputedStyle(list).display !== 'none';
+      if (!isOpen) return;
+      placeFixedDropdown(input, list, { minWidth: 300, maxWidth: 420, maxHeight: 280 });
+    }
+
+    function positionAllDropdowns() {
+      positionMaterialStatusDropdown();
+      positionDispatchCustomerDropdown();
+    }
+
+    ['click', 'input', 'keyup', 'focusin', 'mousedown'].forEach(function (evt) {
+      document.addEventListener(evt, function () {
+        window.requestAnimationFrame(positionAllDropdowns);
+      }, true);
+    });
+    window.addEventListener('resize', positionAllDropdowns);
+    window.addEventListener('scroll', positionAllDropdowns, true);
+
+    var observer = new MutationObserver(function () {
+      window.requestAnimationFrame(positionAllDropdowns);
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+      ['materialStatusDropdown', 'dsCustomerDropdownList'].forEach(function (id) {
+        var node = document.getElementById(id);
+        if (node) observer.observe(node, { attributes: true, childList: true, subtree: true });
+      });
+    });
+  })();
+</script>
+<script type="module" src="/static/yard_3d_view.js"></script>
+
+<script>
+/* =====================================================================
+   3D VIEW STABILITY PATCH
+   Runs after the page modules and keeps base.html layout/controls intact.
+===================================================================== */
+(function () {
+  const raf = (fn) => window.requestAnimationFrame ? window.requestAnimationFrame(fn) : setTimeout(fn, 0);
+
+  function fireResizeSoon() {
+    raf(() => {
+      window.dispatchEvent(new Event('resize'));
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 360);
+    });
+  }
+
+  function bindBaseNavResize() {
+    const navToggle = document.getElementById('navToggle');
+    if (navToggle && !navToggle.__yardResizeBound) {
+      navToggle.__yardResizeBound = true;
+      navToggle.addEventListener('click', fireResizeSoon, true);
+    }
+  }
+
+  function bindFilterCollapse() {
+    const root = document.getElementById('filters');
+    const btn = document.getElementById('filtersToggle');
+    if (!root || !btn || btn.__yardBound) return;
+    btn.__yardBound = true;
+    const saved = localStorage.getItem('yardFiltersCollapsed');
+    if (saved === '1') root.classList.add('filters-collapsed');
+    btn.addEventListener('click', function () {
+      root.classList.toggle('filters-collapsed');
+      localStorage.setItem('yardFiltersCollapsed', root.classList.contains('filters-collapsed') ? '1' : '0');
+      fireResizeSoon();
+    }, true);
+  }
+
+  function bindLegendCollapse() {
+    const card = document.getElementById('tools-card');
+    const btn = document.getElementById('legendToggle');
+    const hint = document.getElementById('legendToggleHint');
+    if (!card || !btn || btn.__yardBound) return;
+    btn.__yardBound = true;
+
+    function apply(collapsed) {
+      card.classList.toggle('collapsed', collapsed);
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      if (hint) hint.textContent = collapsed ? 'EXPAND' : 'CLICK';
+    }
+    apply(localStorage.getItem('yardLegendCollapsed') === '1');
+
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const collapsed = !card.classList.contains('collapsed');
+      apply(collapsed);
+      localStorage.setItem('yardLegendCollapsed', collapsed ? '1' : '0');
+    }, true);
+    btn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        btn.click();
+      }
+    });
+  }
+
+  function syncTopDownToggle() {
+    const clean = document.getElementById('topDownToggle');
+    const injected = document.getElementById('topDown2DToggle');
+    if (injected) {
+      const oldLabel = injected.closest('label') || injected.parentElement;
+      if (oldLabel) oldLabel.style.display = 'none';
+    }
+    if (clean && injected && !clean.__yardSyncBound) {
+      clean.__yardSyncBound = true;
+      clean.checked = !!injected.checked;
+      clean.addEventListener('change', function () {
+        injected.checked = clean.checked;
+        injected.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      injected.addEventListener('change', function () {
+        clean.checked = injected.checked;
+      });
+    }
+  }
+
+  function clamp(v, min, max) { return Math.max(min, Math.min(v, max)); }
+
+  function placeFixedDropdown(anchor, dropdown, opts) {
+    if (!anchor || !dropdown) return;
+    opts = opts || {};
+    const gap = opts.gap || 8;
+    const ar = anchor.getBoundingClientRect();
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const width = clamp(Math.max(opts.minWidth || ar.width || 280, ar.width), 240, Math.min(opts.maxWidth || 420, viewportW - 24));
+    let left = ar.left;
+    if (left + width > viewportW - 12) left = ar.right - width;
+    left = clamp(left, 12, viewportW - width - 12);
+
+    const preferredH = opts.maxHeight || 320;
+    let maxHeight = Math.min(preferredH, viewportH - ar.bottom - gap - 12);
+    let top = ar.bottom + gap;
+    if (maxHeight < 170 && ar.top > viewportH - ar.bottom) {
+      maxHeight = Math.min(preferredH, ar.top - gap - 12);
+      top = ar.top - gap - maxHeight;
+    }
+    maxHeight = clamp(maxHeight, 160, preferredH);
+    top = clamp(top, 12, viewportH - maxHeight - 12);
+
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = Math.round(left) + 'px';
+    dropdown.style.top = Math.round(top) + 'px';
+    dropdown.style.right = 'auto';
+    dropdown.style.width = Math.round(width) + 'px';
+    dropdown.style.maxHeight = Math.round(maxHeight) + 'px';
+  }
+
+  function positionDropdowns() {
+    const msBtn = document.getElementById('materialStatusBtn');
+    const msDd = document.getElementById('materialStatusDropdown');
+    if (msBtn && msDd && (msDd.classList.contains('open') || getComputedStyle(msDd).display !== 'none')) {
+      placeFixedDropdown(msBtn, msDd, { minWidth: 280, maxWidth: 380, maxHeight: 420 });
+    }
+
+    const input = document.getElementById('dsCustomerSearch');
+    const list = document.getElementById('dsCustomerDropdownList');
+    if (input && list && (list.classList.contains('open') || getComputedStyle(list).display !== 'none')) {
+      placeFixedDropdown(input, list, { minWidth: 340, maxWidth: 460, maxHeight: 300 });
+    }
+  }
+
+  let lastMouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  function positionTooltipNearMouse() {
+    const tip = document.getElementById('tooltip');
+    if (!tip || getComputedStyle(tip).display === 'none') return;
+    const pad = 14;
+    const nav = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-w')) || 0;
+    const rect = tip.getBoundingClientRect();
+    let x = lastMouse.x + 16;
+    let y = lastMouse.y + 16;
+    if (x + rect.width + pad > window.innerWidth) x = lastMouse.x - rect.width - 16;
+    if (y + rect.height + pad > window.innerHeight) y = lastMouse.y - rect.height - 16;
+    x = clamp(x, Math.max(12, nav + 12), window.innerWidth - rect.width - pad);
+    y = clamp(y, 12, window.innerHeight - rect.height - 44);
+    tip.style.left = Math.round(x) + 'px';
+    tip.style.top = Math.round(y) + 'px';
+  }
+
+  function bindTooltipPositioner() {
+    if (window.__yardTooltipPositionerBound) return;
+    window.__yardTooltipPositionerBound = true;
+    window.addEventListener('mousemove', function (e) {
+      if (e.target && e.target.closest && e.target.closest('#filters, #tools-card, #search-details, #mixed-lot-panel, #dispatchDrawer, #dispatchBackdrop')) return;
+      lastMouse = { x: e.clientX, y: e.clientY };
+      raf(positionTooltipNearMouse);
+    }, true);
+    const tip = document.getElementById('tooltip');
+    if (tip && window.MutationObserver) {
+      new MutationObserver(() => raf(positionTooltipNearMouse)).observe(tip, { attributes: true, childList: true, subtree: true });
+    }
+  }
+
+  function makeMixedLotPanelsFocusable() {
+    const panel = document.getElementById('mixed-lot-panel');
+    if (!panel) return;
+    const body = document.getElementById('mixed-lot-body');
+    if (body) {
+      body.style.overflowY = 'auto';
+      body.style.minHeight = '0';
+    }
+    panel.addEventListener('wheel', function (e) { e.stopPropagation(); }, { capture: true, passive: true });
+    panel.addEventListener('pointerdown', function (e) { e.stopPropagation(); }, { capture: true });
+  }
+
+  function boot() {
+    bindBaseNavResize();
+    bindFilterCollapse();
+    bindLegendCollapse();
+    syncTopDownToggle();
+    positionDropdowns();
+    bindTooltipPositioner();
+    makeMixedLotPanelsFocusable();
+    fireResizeSoon();
+  }
+
+  document.addEventListener('DOMContentLoaded', boot);
+  window.addEventListener('load', boot);
+  ['click', 'input', 'keyup', 'focusin', 'mousedown'].forEach(function (evt) {
+    document.addEventListener(evt, function () { raf(positionDropdowns); raf(syncTopDownToggle); }, true);
+  });
+  window.addEventListener('resize', function () { raf(positionDropdowns); raf(positionTooltipNearMouse); });
+  window.addEventListener('scroll', function () { raf(positionDropdowns); }, true);
+  // Keep layout in sync with base.html sidebar without observing the whole DOM.
+  // A page-wide subtree observer was expensive on this 3D page because panels,
+  // tooltips and tables update frequently.
+  if (window.MutationObserver) {
+    new MutationObserver(function () { fireResizeSoon(); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+})();
+</script>
+
+{% endblock %}

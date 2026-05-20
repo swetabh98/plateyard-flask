@@ -1,0 +1,136 @@
+{# templates/navigate.html #}
+{% extends "base.html" %}
+
+{% block title %}Navigate | Jindal Yard{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='navigate.css') }}?v=navigate_tables_20260516_02">
+{% endblock %}
+
+{% block content %}
+<section class="navigate-page" data-aos="fade-up">
+  <header class="navigate-hero">
+    <div class="navigate-hero-text">
+      <p class="navigate-eyebrow">Customer Material Locator</p>
+      <h1>Navigate</h1>
+      <p class="navigate-copy">
+        Enter a Batch ID, select a bay, and view all active bin-wise material details for that Batch ID's customer.
+      </p>
+    </div>
+
+    <div class="navigate-hero-badge" aria-label="Google Sheet and yard inventory lookup">
+      <i data-lucide="navigation"></i>
+      <span>Google Sheet + Yard Inventory</span>
+    </div>
+  </header>
+
+  <section class="navigate-search-card" aria-label="Navigate search">
+    <form id="navigateForm" autocomplete="off">
+      <div class="navigate-form-title">
+        <div>
+          <h2>Search Material</h2>
+          <p>Batch ID is matched from the Google Sheet <b>Batch</b> column and customer is taken from <b>CustomerName</b>.</p>
+        </div>
+      </div>
+
+      <div class="navigate-form-grid">
+        <label class="navigate-field" for="navigateBatchId">
+          <span>Batch ID</span>
+          <input
+            id="navigateBatchId"
+            name="batch_id"
+            type="text"
+            placeholder="Enter Batch ID"
+            inputmode="text"
+            required
+          >
+        </label>
+
+        <label class="navigate-field" for="navigateBay">
+          <span>Select Bay</span>
+          <select id="navigateBay" name="bay" required>
+            <option value="">Choose bay</option>
+            {% for bay in bay_options %}
+              <option value="{{ bay.key }}">{{ bay.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="navigate-actions">
+        <button id="navigateSearchBtn" type="submit" class="navigate-primary-btn">
+          <i data-lucide="search"></i>
+          <span>Find Bins</span>
+        </button>
+
+        <button id="navigateResetBtn" type="button" class="navigate-secondary-btn">
+          <i data-lucide="rotate-ccw"></i>
+          <span>Reset</span>
+        </button>
+      </div>
+
+      <div id="navigateMessage" class="navigate-message" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <section id="navigateSummary" class="navigate-summary" aria-label="Navigate summary" hidden>
+    <article class="navigate-summary-card">
+      <span>Batch ID</span>
+      <strong id="summaryBatch">-</strong>
+    </article>
+
+    <article class="navigate-summary-card">
+      <span>Customer</span>
+      <strong id="summaryCustomer">-</strong>
+    </article>
+
+    <article class="navigate-summary-card">
+      <span>Bay</span>
+      <strong id="summaryBay">-</strong>
+    </article>
+
+    <article class="navigate-summary-card">
+      <span>Bins</span>
+      <strong id="summaryBins">0</strong>
+    </article>
+
+    <article class="navigate-summary-card">
+      <span>Items</span>
+      <strong id="summaryItems">0</strong>
+    </article>
+
+    <article class="navigate-summary-card">
+      <span>Weight</span>
+      <strong id="summaryWeight">0.000 t</strong>
+    </article>
+  </section>
+
+  <section id="navigateResults" class="navigate-results" aria-label="Navigate results" hidden>
+    <div class="navigate-results-head">
+      <div class="navigate-results-title">
+        <p class="navigate-eyebrow">Bin-wise availability</p>
+        <h2 id="resultsTitle">Results</h2>
+      </div>
+
+      <label class="navigate-filter" for="navigateFilter">
+        <span class="sr-only">Filter bin details</span>
+        <input id="navigateFilter" type="search" placeholder="Filter ID, bin, status, grade...">
+      </label>
+    </div>
+
+    <div id="binsContainer" class="navigate-bins-container"></div>
+  </section>
+
+  <section id="navigateEmpty" class="navigate-empty" hidden>
+    <i data-lucide="package-x"></i>
+    <h2>No matching bins found</h2>
+    <p>
+      The batch was found and the customer was identified, but no active material for this customer was found in the selected bay.
+    </p>
+  </section>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='navigate.js') }}?v=navigate_tables_20260516_02" defer></script>
+{% endblock %}

@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if page_mode == 'generator' %}QR Code Generator{% else %}Batch QR Details{% endif %}
+{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/qr_code_generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="qr-body-wrapper {% if page_mode == 'detail' %}qr-detail-body{% else %}qr-generator-body{% endif %}">
+  
+  {% if page_mode == 'generator' %}
+    <div class="qr-page">
+      <section class="qr-card qr-generator-card bento-card">
+        <div class="qr-header">
+          <div class="qr-header-left">
+            <div class="qr-header-title-row">
+              <h1 class="text-gradient">QR Code Generator</h1>
+              <button id="qr-view-history-btn" class="mini-btn btn-view">View History</button>
+            </div>
+            <p>
+              Create QR labels for CTL batch bundles. This generates a combined
+              label with both <strong>Public IP</strong> and <strong>Local IP</strong> QR codes.
+              Batch ID and Pieces are mandatory. If Batch exists in Google Sheet,
+              remaining values auto-fill on detail page.
+            </p>
+          </div>
+        </div>
+
+        <form id="qr-generator-form" class="qr-form">
+          <div class="qr-grid">
+            <label>
+              <span>Batch ID <em>*</em></span>
+              <input id="qr-batch" type="text" name="batch" required placeholder="Enter Batch ID" />
+            </label>
+
+            <label>
+              <span>Length</span>
+              <input id="qr-length" type="text" name="v_length" placeholder="V_LENGTH" />
+            </label>
+
+            <label>
+              <span>Width</span>
+              <input id="qr-width" type="text" name="v_width" placeholder="V_WIDTH" />
+            </label>
+
+            <label>
+              <span>Thickness</span>
+              <input id="qr-thickness" type="text" name="v_thickness" placeholder="V_THICKNESS" />
+            </label>
+
+            <label>
+              <span>Pieces <em>*</em></span>
+              <input id="qr-pieces" type="text" name="v_pieces" required placeholder="V_PIECES" />
+            </label>
+
+            <label>
+              <span>Grade</span>
+              <input id="qr-grade" type="text" name="grade" placeholder="V_EXT_GRADE" />
+            </label>
+          </div>
+
+          <div class="qr-actions">
+            <button id="qr-generate-btn" type="submit" class="primary-btn">Generate QR Code</button>
+            <button id="qr-cancel-edit-btn" type="button" class="mini-btn btn-delete" style="display:none;">Cancel Edit</button>
+          </div>
+        </form>
+
+        <div id="qr-generator-message" class="qr-message"></div>
+
+        <section class="qr-preview-card full-width-card">
+          <div class="qr-preview-card-head">
+            <div>
+              <h2 id="qr-preview-batch">Generated QR Label</h2>
+            </div>
+            <div class="qr-preview-links dual-links">
+              <a id="qr-open-detail-current" href="#" class="mini-btn btn-view" target="_blank" rel="noopener">Open Detail Page</a>
+              <a id="qr-open-print" href="#" class="mini-btn btn-print" target="_blank" rel="noopener">Print</a>
+            </div>
+          </div>
+
+          <div id="qr-preview-empty" class="qr-preview-empty">
+            Generate a QR code to see the preview here.
+          </div>
+
+          <div id="qr-preview-holder" class="qr-preview-single" style="display:none;">
+            <div class="qr-preview-col">
+              <div class="qr-preview-col-head">
+                <h3>Combined QR Label (Public & Local)</h3>
+                <a id="qr-open-combined-label" href="#" target="_blank" rel="noopener">Open QR Label</a>
+              </div>
+              <img id="qr-preview-combined-image" alt="Combined QR Label">
+            </div>
+          </div>
+
+          <div id="qr-detail-preview" class="qr-detail-preview"></div>
+        </section>
+
+        <section class="qr-list-card full-width-card">
+          <div class="qr-list-card-head">
+            <h2>Stored QR Codes</h2>
+          </div>
+
+          <div class="qr-search-row">
+            <input id="qr-search-input" type="text" placeholder="Search by Batch ID" />
+            <button id="qr-search-btn" type="button" class="mini-btn btn-view">Search</button>
+            <button id="qr-refresh-btn" type="button" class="mini-btn secondary-btn">Refresh</button>
+          </div>
+
+          <div class="qr-list-wrap">
+            <table class="qr-list-table">
+              <thead>
+                <tr>
+                  <th>Batch</th>
+                  <th>Length</th>
+                  <th>Width</th>
+                  <th>Thickness</th>
+                  <th>Pieces</th>
+                  <th>Grade</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="qr-list-body">
+                <tr>
+                  <td colspan="8" class="qr-empty-row">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <div id="qr-name-modal" class="qr-modal-overlay" style="display:none;">
+      <div class="qr-modal-box" style="max-width: 400px;">
+        <h3 class="qr-modal-title">QR Code Generator</h3>
+        <p style="margin-top: 0; color:var(--text-secondary); font-size:13px;">Please enter your name to continue. This is used to track changes you make on this tab.</p>
+        <input type="text" id="qr-name-input" style="width:100%; margin-top: 10px;" placeholder="Your Name" autocomplete="off" />
+        <button id="qr-name-submit" class="primary-btn" style="margin-top:16px; width:100%;">Continue</button>
+      </div>
+    </div>
+
+    <div id="qr-history-modal" class="qr-modal-overlay" style="display:none;">
+      <div class="qr-modal-box">
+        <h3 class="qr-modal-title">Activity History</h3>
+        <div class="qr-history-table-wrap">
+          <table class="qr-list-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Batch</th>
+              </tr>
+            </thead>
+            <tbody id="qr-history-body">
+              <tr><td colspan="4" class="qr-empty-row">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <button id="qr-history-close" class="secondary-btn mini-btn qr-modal-close">Close</button>
+      </div>
+    </div>
+
+  {% else %}
+    <div class="qr-detail-wrap">
+      <section class="qr-card qr-detail-card no-nav-detail bento-card">
+        {% if record %}
+          <div class="qr-header qr-detail-header">
+            <div>
+              <h1 class="text-gradient">Batch QR Details</h1>
+              <p>
+                This page shows the latest available details for the scanned batch.
+                Google Sheet data appears automatically once available there.
+              </p>
+            </div>
+            <div class="qr-header-actions">
+              <a class="mini-btn btn-print" href="{{ record['__meta']['current_print_url'] }}" target="_blank" rel="noopener">Print</a>
+              <a class="mini-btn btn-view" href="{{ record['__meta']['current_public_image_url'] }}" target="_blank" rel="noopener">Open QR Label</a>
+            </div>
+          </div>
+
+          <div class="qr-summary-grid">
+            <div class="qr-summary-item">
+              <span>BATCH</span>
+              <strong>{{ record['Batch'] or requested_batch }}</strong>
+            </div>
+            <div class="qr-summary-item">
+              <span>LENGTH</span>
+              <strong>{{ record['V_LENGTH'] or '-' }}</strong>
+            </div>
+            <div class="qr-summary-item">
+              <span>WIDTH</span>
+              <strong>{{ record['V_WIDTH'] or '-' }}</strong>
+            </div>
+            <div class="qr-summary-item">
+              <span>THICKNESS</span>
+              <strong>{{ record['V_THICKNESS'] or '-' }}</strong>
+            </div>
+            <div class="qr-summary-item">
+              <span>PIECES</span>
+              <strong>{{ record['V_PIECES'] or '-' }}</strong>
+            </div>
+            <div class="qr-summary-item">
+              <span>BIN NO</span>
+              <div class="qr-binno-summary">
+                <strong>{{ record['BinNo'] or '-' }}</strong>
+                <a class="mini-btn btn-edit" href="{{ update_bin_url }}" target="_blank" rel="noopener">Update BinNo</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="qr-table-wrap">
+            <table class="qr-detail-table">
+              <tbody>
+                {% for field in display_fields %}
+                  <tr>
+                    <th>{{ field }}</th>
+                    <td>
+                      {% if field == 'BinNo' %}
+                        <div class="qr-value-cell">
+                          <span>{{ record[field] or '-' }}</span>
+                          <a class="mini-btn btn-edit" href="{{ update_bin_url }}" target="_blank" rel="noopener">Update BinNo</a>
+                        </div>
+                      {% else %}
+                        {{ record[field] or '-' }}
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="qr-header">
+            <div>
+              <h1 class="text-gradient">Batch QR Details</h1>
+              <p>No batch details were found for <strong>{{ requested_batch }}</strong>.</p>
+            </div>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  window.QR_GENERATOR_CONFIG = {
+    generateApi: "{{ url_for('api_qr_code_generate') }}",
+    listApi: "{{ url_for('api_qr_code_list') }}",
+    deleteApi: "{{ url_for('api_qr_code_delete') }}",
+    historyApi: "{{ url_for('api_qr_code_history') }}",
+    getApiBase: "{{ (_request_ctx_stack.top.url_adapter.build('api_qr_batch_details', {'batch':'__BATCH__'}) if false else '/api/qr/batch/__BATCH__') }}",
+    currentBaseUrl: "{{ current_base_url }}",
+    publicBaseUrl: "{{ qr_public_base_url }}",
+    localBaseUrl: "{{ qr_local_base_url }}"
+  };
+</script>
+<script src="{{ url_for('static', filename='js/qr_code_generator.js') }}"></script>
+{% endblock %}
