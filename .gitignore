@@ -62,3 +62,7 @@ SELECT
 CTL forward.txt
 New Text Document.txt
 Parallel toother bays- CTL.txt
+
+*.db-shm
+*.db-wal
+*.db-journal

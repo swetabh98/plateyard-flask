@@ -23,7 +23,17 @@ except Exception:  # pragma: no cover
     ImageFont = None
 
 
-QR_DB_PATH = os.getenv("YARD_DB_PATH", "yard_logic/yard_data.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IS_VERCEL = bool(os.environ.get("VERCEL"))
+
+DEFAULT_QR_DB_PATH = (
+    os.path.join("/tmp", "qr_demo_data.db")
+    if IS_VERCEL
+    else os.path.join(BASE_DIR, "yard_logic", "yard_data.db")
+)
+
+QR_DB_PATH = os.getenv("YARD_DB_PATH", DEFAULT_QR_DB_PATH)
+
 QR_PUBLIC_BASE_URL = (os.getenv("QR_PUBLIC_BASE_URL") or "http://115.243.51.157:8026").rstrip("/")
 QR_LOCAL_BASE_URL = (os.getenv("QR_LOCAL_BASE_URL") or "http://172.17.33.125:8026").rstrip("/")
 QR_SHEET_CSV_URL = os.environ.get(
@@ -61,17 +71,19 @@ _PRINTER_LOCKS: Dict[str, threading.Lock] = {}
 _PRINTER_LOCKS_GUARD = threading.Lock()
 
 # ── Zebra ZT411 is 600 DPI ──────────────────────────────────────────────────
-PRINTER_DPI   = 600
-LABEL_W_MM    = 100
-LABEL_H_MM    =  75        # each of the two copies
-PAGE_H_MM     = 150        # total page = 2 × 75 mm
+PRINTER_DPI = 600
+LABEL_W_MM = 100
+LABEL_H_MM = 75        # each of the two copies
+PAGE_H_MM = 150        # total page = 2 × 75 mm
+
 
 def _mm_to_px(mm: float) -> int:
     return round(mm / 25.4 * PRINTER_DPI)
 
-LABEL_W  = _mm_to_px(LABEL_W_MM)   # 2362
-LABEL_H  = _mm_to_px(LABEL_H_MM)   # 1772
-PAGE_H   = _mm_to_px(PAGE_H_MM)    # 3543
+
+LABEL_W = _mm_to_px(LABEL_W_MM)   # 2362
+LABEL_H = _mm_to_px(LABEL_H_MM)   # 1772
+PAGE_H = _mm_to_px(PAGE_H_MM)     # 3543
 
 DISPLAY_FIELDS = [
     "SO_ITEM", "PK_Mat_batch", "Customer", "Object", "Batch", "MVT",
@@ -91,6 +103,7 @@ SEED_FIELDS = [
 
 
 IST = timezone(timedelta(hours=5, minutes=30))
+
 
 def _utc_now_iso() -> str:
     return datetime.now(IST).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%S+05:30")
@@ -219,11 +232,17 @@ def _pick_any(row: Dict[str, str], keys: List[str]) -> str:
 
 
 def _connect_db() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(QR_DB_PATH) or ".", exist_ok=True)
+    db_dir = os.path.dirname(os.path.abspath(QR_DB_PATH))
+    os.makedirs(db_dir, exist_ok=True)
+
     con = sqlite3.connect(QR_DB_PATH, timeout=30, isolation_level=None)
     con.row_factory = sqlite3.Row
 
-    con.execute("PRAGMA journal_mode=WAL")
+    try:
+        con.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass
+
     con.execute("PRAGMA synchronous=NORMAL")
     con.execute("PRAGMA busy_timeout=30000")
     con.execute("PRAGMA foreign_keys=ON")
@@ -357,12 +376,12 @@ def _get_seed(batch: str) -> Dict[str, str]:
         if not row:
             return {}
         return {
-            "Batch":      _as_str(row["batch"]),
-            "V_LENGTH":   _as_str(row["v_length"]),
-            "V_WIDTH":    _as_str(row["v_width"]),
-            "V_THICKNESS":_as_str(row["v_thickness"]),
-            "V_PIECES":   _as_str(row["v_pieces"]),
-            "V_EXT_GRADE":_as_str(row["v_ext_grade"]),
+            "Batch": _as_str(row["batch"]),
+            "V_LENGTH": _as_str(row["v_length"]),
+            "V_WIDTH": _as_str(row["v_width"]),
+            "V_THICKNESS": _as_str(row["v_thickness"]),
+            "V_PIECES": _as_str(row["v_pieces"]),
+            "V_EXT_GRADE": _as_str(row["v_ext_grade"]),
             "created_at": _as_str(row["created_at"]),
             "updated_at": _as_str(row["updated_at"]),
         }
@@ -396,12 +415,12 @@ def _list_seeds(search: str = "") -> List[Dict[str, str]]:
         rows = []
         for r in cur.fetchall():
             rows.append({
-                "batch":      _as_str(r["batch"]),
-                "v_length":   _as_str(r["v_length"]),
-                "v_width":    _as_str(r["v_width"]),
-                "v_thickness":_as_str(r["v_thickness"]),
-                "pieces":     _as_str(r["v_pieces"]),
-                "grade":      _as_str(r["v_ext_grade"]),
+                "batch": _as_str(r["batch"]),
+                "v_length": _as_str(r["v_length"]),
+                "v_width": _as_str(r["v_width"]),
+                "v_thickness": _as_str(r["v_thickness"]),
+                "pieces": _as_str(r["v_pieces"]),
+                "grade": _as_str(r["v_ext_grade"]),
                 "created_at": _as_str(r["created_at"]),
                 "updated_at": _as_str(r["updated_at"]),
             })
@@ -438,7 +457,7 @@ def _combine_record(batch: str, current_base_url: str = "") -> Dict[str, Any]:
     if not current_base_url:
         current_base_url = QR_PUBLIC_BASE_URL
 
-    seed      = _get_seed(batch)
+    seed = _get_seed(batch)
     sheet_row = _find_sheet_row(batch)
 
     merged: Dict[str, Any] = {}
@@ -459,28 +478,28 @@ def _combine_record(batch: str, current_base_url: str = "") -> Dict[str, Any]:
     slug = _safe_slug(batch_final)
 
     merged["__meta"] = {
-        "batch":                    batch_final,
-        "seed_found":               bool(seed),
-        "sheet_found":              bool(sheet_row),
-        "current_base_url":         current_base_url,
-        "public_base_url":          QR_PUBLIC_BASE_URL,
-        "local_base_url":           QR_LOCAL_BASE_URL,
-        "current_detail_url":       f"{current_base_url}/qr/batch/{slug}",
-        "public_detail_url":        f"{QR_PUBLIC_BASE_URL}/qr/batch/{slug}",
-        "local_detail_url":         f"{QR_LOCAL_BASE_URL}/qr/batch/{slug}",
+        "batch": batch_final,
+        "seed_found": bool(seed),
+        "sheet_found": bool(sheet_row),
+        "current_base_url": current_base_url,
+        "public_base_url": QR_PUBLIC_BASE_URL,
+        "local_base_url": QR_LOCAL_BASE_URL,
+        "current_detail_url": f"{current_base_url}/qr/batch/{slug}",
+        "public_detail_url": f"{QR_PUBLIC_BASE_URL}/qr/batch/{slug}",
+        "local_detail_url": f"{QR_LOCAL_BASE_URL}/qr/batch/{slug}",
         "current_public_image_url": f"{current_base_url}/qr/batch/{slug}/image.png",
-        "current_local_image_url":  f"{current_base_url}/qr/batch/{slug}/image.png",
-        "public_image_url":         f"{QR_PUBLIC_BASE_URL}/qr/batch/{slug}/image.png",
-        "local_image_url":          f"{QR_LOCAL_BASE_URL}/qr/batch/{slug}/image.png",
-        "current_print_url":        f"{current_base_url}/qr/batch/{slug}/print",
-        "public_print_url":         f"{QR_PUBLIC_BASE_URL}/qr/batch/{slug}/print",
-        "local_print_url":          f"{QR_LOCAL_BASE_URL}/qr/batch/{slug}/print",
-        "update_bin_url":           UPDATE_BINNO_URL,
-        "created_at":               seed.get("created_at", ""),
-        "updated_at":               seed.get("updated_at", ""),
-        "current_is_local":         _is_local_request(current_base_url),
-        "client_ip":                _client_ip(),
-        "selected_printer_ip":      _selected_printer_ip(),
+        "current_local_image_url": f"{current_base_url}/qr/batch/{slug}/image.png",
+        "public_image_url": f"{QR_PUBLIC_BASE_URL}/qr/batch/{slug}/image.png",
+        "local_image_url": f"{QR_LOCAL_BASE_URL}/qr/batch/{slug}/image.png",
+        "current_print_url": f"{current_base_url}/qr/batch/{slug}/print",
+        "public_print_url": f"{QR_PUBLIC_BASE_URL}/qr/batch/{slug}/print",
+        "local_print_url": f"{QR_LOCAL_BASE_URL}/qr/batch/{slug}/print",
+        "update_bin_url": UPDATE_BINNO_URL,
+        "created_at": seed.get("created_at", ""),
+        "updated_at": seed.get("updated_at", ""),
+        "current_is_local": _is_local_request(current_base_url),
+        "client_ip": _client_ip(),
+        "selected_printer_ip": _selected_printer_ip(),
     }
     return merged
 
@@ -559,30 +578,28 @@ def _draw_wrapped_center(draw, text: str, box, font, fill="#111111", line_gap: i
 
 
 def _build_single_label(record: Dict[str, Any], pub_url: str, loc_url: str) -> "Image.Image":
-
     W, H = LABEL_W, LABEL_H
 
     canvas = Image.new("RGB", (W, H), "white")
     draw = ImageDraw.Draw(canvas)
 
     # Border
-    draw.rectangle([10, 10, W-10, H-10], outline="black", width=4)
+    draw.rectangle([10, 10, W - 10, H - 10], outline="black", width=4)
 
-    # QR size (BIG + balanced)
+    # QR size
     QR_SIZE = int(H * 0.6)
 
     # Center positions
-    LEFT_X  = int(W * 0.1)
+    LEFT_X = int(W * 0.1)
     RIGHT_X = int(W * 0.55)
 
     QR_Y = int(H * 0.08)
 
     # Fonts
     font_label = _font(int(H * 0.045), bold=True)
-    font_main  = _font(int(H * 0.075), bold=True)
-    font_sub   = _font(int(H * 0.05))
+    font_main = _font(int(H * 0.075), bold=True)
+    font_sub = _font(int(H * 0.05))
 
-    # QR generator
     def make_qr(url):
         qr = qrcode.QRCode(
             version=4,
@@ -615,7 +632,6 @@ def _build_single_label(record: Dict[str, Any], pub_url: str, loc_url: str) -> "
         _as_str(record.get("V_PIECES")) or "-"
     )
 
-    # Center text helper
     def center_text(y, text, font):
         bbox = draw.textbbox((0, 0), text, font=font)
         tw = bbox[2] - bbox[0]
@@ -632,9 +648,9 @@ def _build_combined_label(batch: str) -> bytes:
     if qrcode is None or Image is None or ImageDraw is None or ImageFont is None:
         raise RuntimeError("Missing required libraries: qrcode and pillow")
 
-    record     = _combine_record(batch, current_base_url=_request_base_url())
+    record = _combine_record(batch, current_base_url=_request_base_url())
     batch_text = _as_str(record.get("Batch")) or _as_str(batch)
-    slug       = _safe_slug(batch_text)
+    slug = _safe_slug(batch_text)
 
     pub_url = f"{QR_PUBLIC_BASE_URL.rstrip('/')}/qr/batch/{slug}"
     loc_url = f"{QR_LOCAL_BASE_URL.rstrip('/')}/qr/batch/{slug}"
@@ -668,8 +684,8 @@ def register_qr_code_generator(app):
 
     @app.post("/api/qr-code-generator/generate")
     def api_qr_code_generate():
-        payload   = request.get_json(silent=True) or request.form.to_dict() or {}
-        batch     = _as_str(payload.get("batch"))
+        payload = request.get_json(silent=True) or request.form.to_dict() or {}
+        batch = _as_str(payload.get("batch"))
         user_name = _as_str(payload.get("user_name", "Unknown User"))
         action_type = _as_str(payload.get("action_type", "generated"))
 
@@ -687,10 +703,10 @@ def register_qr_code_generator(app):
             if not _as_str(payload.get("v_length")):
                 sheet_row = _find_sheet_row(batch)
                 if sheet_row:
-                    payload["v_length"]    = _pick_any(sheet_row, ["V_LENGTH"])
-                    payload["v_width"]     = _pick_any(sheet_row, ["V_WIDTH"])
+                    payload["v_length"] = _pick_any(sheet_row, ["V_LENGTH"])
+                    payload["v_width"] = _pick_any(sheet_row, ["V_WIDTH"])
                     payload["v_thickness"] = _pick_any(sheet_row, ["V_THICKNESS"])
-                    payload["grade"]       = _pick_any(sheet_row, ["V_EXT_GRADE"])
+                    payload["grade"] = _pick_any(sheet_row, ["V_EXT_GRADE"])
             _upsert_seed(payload)
             _log_action(user_name, action_type, batch)
         except Exception as e:
@@ -698,29 +714,29 @@ def register_qr_code_generator(app):
 
         rec = _combine_record(batch, current_base_url=_request_base_url())
         return jsonify({
-            "ok":   True,
+            "ok": True,
             "batch": rec["__meta"]["batch"],
             "record": rec,
-            "current_detail_url":       rec["__meta"]["current_detail_url"],
-            "public_detail_url":        rec["__meta"]["public_detail_url"],
-            "local_detail_url":         rec["__meta"]["local_detail_url"],
+            "current_detail_url": rec["__meta"]["current_detail_url"],
+            "public_detail_url": rec["__meta"]["public_detail_url"],
+            "local_detail_url": rec["__meta"]["local_detail_url"],
             "current_public_image_url": rec["__meta"]["current_public_image_url"],
-            "current_local_image_url":  rec["__meta"]["current_local_image_url"],
-            "current_print_url":        rec["__meta"]["current_print_url"],
-            "client_ip":                rec["__meta"]["client_ip"],
-            "selected_printer_ip":      rec["__meta"]["selected_printer_ip"],
+            "current_local_image_url": rec["__meta"]["current_local_image_url"],
+            "current_print_url": rec["__meta"]["current_print_url"],
+            "client_ip": rec["__meta"]["client_ip"],
+            "selected_printer_ip": rec["__meta"]["selected_printer_ip"],
         })
 
     @app.get("/api/qr-code-generator/list")
     def api_qr_code_list():
         search = _as_str(request.args.get("search"))
-        rows   = _list_seeds(search)
+        rows = _list_seeds(search)
         return jsonify({"ok": True, "rows": rows})
 
     @app.post("/api/qr-code-generator/delete")
     def api_qr_code_delete():
-        payload   = request.get_json(silent=True) or request.form.to_dict() or {}
-        batch     = _as_str(payload.get("batch"))
+        payload = request.get_json(silent=True) or request.form.to_dict() or {}
+        batch = _as_str(payload.get("batch"))
         user_name = _as_str(payload.get("user_name", "Unknown User"))
         if not batch:
             return jsonify({"ok": False, "error": "Batch is required."}), 400
@@ -806,12 +822,12 @@ def register_qr_code_generator(app):
         slug = _safe_slug(batch_text)
 
         public_url = f"{QR_PUBLIC_BASE_URL}/qr/batch/{slug}"
-        local_url  = f"{QR_LOCAL_BASE_URL}/qr/batch/{slug}"
+        local_url = f"{QR_LOCAL_BASE_URL}/qr/batch/{slug}"
 
-        # 🔥 AUTO DPI FIX (ONLY CHANGE)
+        # AUTO DPI FIX
         printer_ip = _selected_printer_ip()
 
-        if printer_ip == "172.17.33.67":  # NEW PRINTER (203 DPI)
+        if printer_ip == "172.17.33.67":  # NEW PRINTER - 203 DPI
             zpl = f"""
 ^XA
 ^PW800
@@ -893,7 +909,7 @@ def register_qr_code_generator(app):
 ^XZ
 """
         else:
-            # OLD PRINTER (600 DPI) — EXACT SAME AS BEFORE
+            # OLD PRINTER - 600 DPI
             zpl = f"""
 ^XA
 ^PW2362
@@ -978,11 +994,11 @@ def register_qr_code_generator(app):
         try:
             client_ip = _client_ip()
             printer_ip = _send_zpl_to_printer(zpl)
-            return f"✅ Printed successfully from client {client_ip} on printer {printer_ip}"
+            return f"Printed successfully from client {client_ip} on printer {printer_ip}"
         except Exception as e:
             client_ip = _client_ip()
             printer_ip = _selected_printer_ip()
             return (
-                f"❌ Print failed for client {client_ip} on printer {printer_ip}:{QR_PRINTER_PORT}. "
+                f"Print failed for client {client_ip} on printer {printer_ip}:{QR_PRINTER_PORT}. "
                 f"{str(e)}"
             )
