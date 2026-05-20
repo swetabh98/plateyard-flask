@@ -675,7 +675,18 @@ def _anchors_from_zones(zs: list[dict]) -> dict:
 # -----------------------------------------------------------------------------
 # DB (SQLAlchemy)
 # -----------------------------------------------------------------------------
-DB_PATH = os.getenv("YARD_DB_PATH", "yard_logic/yard_data.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IS_VERCEL = bool(os.environ.get("VERCEL"))
+
+DEFAULT_DB_PATH = (
+    os.path.join("/tmp", "yard_data.db")
+    if IS_VERCEL
+    else os.path.join(BASE_DIR, "yard_logic", "yard_data.db")
+)
+
+DB_PATH = os.getenv("YARD_DB_PATH", DEFAULT_DB_PATH)
+if not os.path.isabs(DB_PATH):
+    DB_PATH = os.path.join(BASE_DIR, DB_PATH)
 
 
 def normalize_db_url(raw: str) -> str:
@@ -714,7 +725,7 @@ def _fetchone_scalar(con, sql, params=None):
 
 
 def ensure_schema():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)) or ".", exist_ok=True)
     with engine.begin() as con:
         _exec(
             con,
@@ -850,13 +861,20 @@ def ensure_schema():
 # -----------------------------------------------------------------------------
 # Users DB (auth)
 # -----------------------------------------------------------------------------
-USERS_DB = os.getenv("USERS_DB_PATH", "yard_logic/users.db")
+DEFAULT_USERS_DB = (
+    os.path.join("/tmp", "users.db")
+    if IS_VERCEL
+    else os.path.join(BASE_DIR, "yard_logic", "users.db")
+)
+USERS_DB = os.getenv("USERS_DB_PATH", DEFAULT_USERS_DB)
+if not os.path.isabs(USERS_DB):
+    USERS_DB = os.path.join(BASE_DIR, USERS_DB)
 
 
 def get_user_db():
     db = getattr(g, "_users_db", None)
     if db is None:
-        os.makedirs(os.path.dirname(USERS_DB), exist_ok=True)
+        os.makedirs(os.path.dirname(os.path.abspath(USERS_DB)) or ".", exist_ok=True)
         db = g._users_db = sqlite3.connect(USERS_DB)
         db.row_factory = sqlite3.Row
     return db
@@ -1460,6 +1478,9 @@ def config_provider() -> dict:
     )
 
     cfg = {
+        "sqlite_path": DB_PATH,
+        "layout_json_path": LAYOUT_PATH,
+        "google_sheet_csv_url": f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv" if SHEET_ID else "",
         "weights": {
             "rehandles": 5.0,
             "travel": 3.0,
@@ -2662,6 +2683,13 @@ def app_init_once():
             return
 
         ensure_schema()
+
+        if IS_VERCEL:
+            # Vercel serverless functions use a read-only project directory and
+            # short-lived execution. Keep startup light and avoid background threads.
+            _init_done = True
+            return
+
         try:
             stats = import_google_sheet_once()
             print(f"✅ Startup import @ {stats.get('at')}")
