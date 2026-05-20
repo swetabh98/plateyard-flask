@@ -675,18 +675,7 @@ def _anchors_from_zones(zs: list[dict]) -> dict:
 # -----------------------------------------------------------------------------
 # DB (SQLAlchemy)
 # -----------------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-IS_VERCEL = bool(os.environ.get("VERCEL"))
-
-DEFAULT_DB_PATH = (
-    os.path.join("/tmp", "yard_data.db")
-    if IS_VERCEL
-    else os.path.join(BASE_DIR, "yard_logic", "yard_data.db")
-)
-
-DB_PATH = os.getenv("YARD_DB_PATH", DEFAULT_DB_PATH)
-if not os.path.isabs(DB_PATH):
-    DB_PATH = os.path.join(BASE_DIR, DB_PATH)
+DB_PATH = os.getenv("YARD_DB_PATH", "yard_logic/yard_data.db")
 
 
 def normalize_db_url(raw: str) -> str:
@@ -725,7 +714,7 @@ def _fetchone_scalar(con, sql, params=None):
 
 
 def ensure_schema():
-    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)) or ".", exist_ok=True)
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     with engine.begin() as con:
         _exec(
             con,
@@ -861,20 +850,13 @@ def ensure_schema():
 # -----------------------------------------------------------------------------
 # Users DB (auth)
 # -----------------------------------------------------------------------------
-DEFAULT_USERS_DB = (
-    os.path.join("/tmp", "users.db")
-    if IS_VERCEL
-    else os.path.join(BASE_DIR, "yard_logic", "users.db")
-)
-USERS_DB = os.getenv("USERS_DB_PATH", DEFAULT_USERS_DB)
-if not os.path.isabs(USERS_DB):
-    USERS_DB = os.path.join(BASE_DIR, USERS_DB)
+USERS_DB = os.getenv("USERS_DB_PATH", "yard_logic/users.db")
 
 
 def get_user_db():
     db = getattr(g, "_users_db", None)
     if db is None:
-        os.makedirs(os.path.dirname(os.path.abspath(USERS_DB)) or ".", exist_ok=True)
+        os.makedirs(os.path.dirname(USERS_DB), exist_ok=True)
         db = g._users_db = sqlite3.connect(USERS_DB)
         db.row_factory = sqlite3.Row
     return db
@@ -1478,9 +1460,6 @@ def config_provider() -> dict:
     )
 
     cfg = {
-        "sqlite_path": DB_PATH,
-        "layout_json_path": LAYOUT_PATH,
-        "google_sheet_csv_url": f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv" if SHEET_ID else "",
         "weights": {
             "rehandles": 5.0,
             "travel": 3.0,
@@ -2650,10 +2629,22 @@ def seed_demo_data_if_empty():
 
 
 # -----------------------------------------------------------------------------
-# Init + 15-min background refresh
+# Init + Google Sheet refresh
 # -----------------------------------------------------------------------------
 _init_lock = threading.Lock()
 _init_done = False
+
+_refresh_thread_started = False
+_sheet_refresh_lock = threading.Lock()
+_last_sheet_refresh_ts = 0.0
+_last_sheet_refresh_stats: dict | None = None
+
+
+def _sheet_refresh_interval_seconds() -> int:
+    try:
+        return max(60, int(os.getenv("SHEET_REFRESH_INTERVAL_SECONDS", "900")))
+    except Exception:
+        return 900
 
 
 def _sheet_refresh_loop(interval_seconds: int = 15 * 60):
@@ -2671,7 +2662,35 @@ def _sheet_refresh_loop(interval_seconds: int = 15 * 60):
         time.sleep(interval_seconds)
 
 
-_refresh_thread_started = False
+def _refresh_google_sheet_now(reason: str = "manual") -> dict:
+    global _last_sheet_refresh_ts, _last_sheet_refresh_stats
+    with _sheet_refresh_lock:
+        stats = import_google_sheet_once()
+        _last_sheet_refresh_ts = time.time()
+        _last_sheet_refresh_stats = stats
+        print(f"✅ Google Sheet import ({reason}) @ {stats.get('at')}")
+        print(f"   Rows fetched : {stats.get('rows_fetched', 0)}")
+        print(f"   Rows mapped  : {stats.get('rows_mapped', 0)}")
+        print(f"   Inventory    : {stats.get('inventory', 0)}")
+        print("")
+        return stats
+
+
+def _refresh_google_sheet_if_needed(reason: str = "request") -> None:
+    if not SHEET_ID:
+        return
+
+    interval = _sheet_refresh_interval_seconds()
+    now_ts = time.time()
+
+    if _last_sheet_refresh_ts and (now_ts - _last_sheet_refresh_ts) < interval:
+        return
+
+    try:
+        _refresh_google_sheet_now(reason=reason)
+    except Exception as e:
+        print(f"⚠️ Google Sheet import skipped/failed ({reason}): {e}")
+        print("")
 
 
 def app_init_once():
@@ -2684,25 +2703,21 @@ def app_init_once():
 
         ensure_schema()
 
-        if IS_VERCEL:
-            # Vercel serverless functions use a read-only project directory and
-            # short-lived execution. Keep startup light and avoid background threads.
-            _init_done = True
-            return
-
         try:
-            stats = import_google_sheet_once()
-            print(f"✅ Startup import @ {stats.get('at')}")
-            print(f"   Rows fetched : {stats.get('rows_fetched', 0)}")
-            print(f"   Rows mapped  : {stats.get('rows_mapped', 0)}")
-            print(f"   Inventory    : {stats.get('inventory', 0)}")
-            print("")
+            _refresh_google_sheet_now(reason="startup")
         except Exception as e:
             print(f"⚠️ Startup import failed: {e}")
             seed_demo_data_if_empty()
 
-        if not _refresh_thread_started and SHEET_ID:
-            t = threading.Thread(target=_sheet_refresh_loop, daemon=True)
+        # Vercel serverless functions do not reliably keep background threads alive.
+        # So Vercel refreshes from Google Sheet on real requests through
+        # _refresh_google_sheet_if_needed(). Local/Waitress still uses the interval thread.
+        if (not IS_VERCEL) and (not _refresh_thread_started) and SHEET_ID:
+            t = threading.Thread(
+                target=_sheet_refresh_loop,
+                args=(_sheet_refresh_interval_seconds(),),
+                daemon=True,
+            )
             t.start()
             _refresh_thread_started = True
 
@@ -2716,6 +2731,36 @@ with app.app_context():
 @app.before_request
 def _ensure_inited():
     app_init_once()
+    if IS_VERCEL:
+        path = request.path or ""
+        skip_prefixes = ("/static/", "/favicon", "/health", "/api/routes")
+        if not any(path.startswith(pfx) for pfx in skip_prefixes):
+            _refresh_google_sheet_if_needed(reason="vercel-request")
+
+
+@app.post("/api/sheets/import-now")
+def api_sheets_import_now():
+    try:
+        stats = _refresh_google_sheet_now(reason="api")
+        return jsonify({"ok": True, **stats})
+    except Exception as e:
+        app.logger.exception("Manual Google Sheet import failed")
+        return jsonify({"ok": False, "error": str(e), "at": utc_now_iso_z()}), 500
+
+
+@app.get("/api/sheets/import-status")
+def api_sheets_import_status():
+    return jsonify({
+        "ok": True,
+        "sheet_id": SHEET_ID,
+        "sheet_name": SHEET_NAME,
+        "mode": SHEETS_MODE,
+        "refresh_interval_seconds": _sheet_refresh_interval_seconds(),
+        "last_refresh_epoch": _last_sheet_refresh_ts,
+        "last_refresh_stats": _last_sheet_refresh_stats,
+        "is_vercel": IS_VERCEL,
+        "at": utc_now_iso_z(),
+    })
 
 
 # -----------------------------------------------------------------------------
